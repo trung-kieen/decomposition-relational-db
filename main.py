@@ -76,6 +76,94 @@ class FDSet(set[FD]):
     def __init__(self):
         super().__init__(self)
 
+    @staticmethod
+    def closure(FDs):
+        """
+        Usage:
+            Return closure set of functional dependency can inference for Armstrong ruleset
+        """
+        inner_FDs = FDs.copy() # Avoid inplace change
+        while True:
+            old_len  = len(inner_FDs)
+            Armstrong.ir2(inner_FDs)
+            Armstrong.ir3(inner_FDs)
+            no_more_inference_fd =  old_len == len(inner_FDs)
+            if no_more_inference_fd:
+                break
+        return inner_FDs
+
+
+
+
+class Armstrong:
+    """
+    Helper rule to find FD set closure
+    Ignore IR1 for some reason =))
+    """
+
+    @staticmethod
+    def ir2(FDs: FDSet):
+        """
+        IR2:
+        Case 1
+        A -> B <=> A -> AB
+        AB -> CD <=> {AB -> BCD, AB -> ACD, AB -> ABCD} // all subset available for left hand side
+        """
+
+        old = FDs.copy()
+        for fd in old:
+            # Add all posible subset of left hand to right hand for additional rule
+            subsets = subset(fd.lhs)
+            for s in subsets:
+                right_side = fd.rhs.union(s)
+                FDs.add(FD(fd.lhs, right_side))
+
+
+    @staticmethod
+    def ir3(FDs: FDSet):
+        """
+        IR3: A -> B and B -> C then we have A -> C
+
+        Additional i think it should reconstruct right hand side from composition to make sure transitive work
+        For example:
+        A -> B
+        A -> C
+        BC -> E
+
+        Common sense
+        A -> B and A -> C then we have A -> B, C
+        BC -> E
+        """
+        old = FDs.copy()
+        for fd1 in old:
+            for fd2 in old:
+                if fd1 == fd2: continue
+                if fd1.rhs.issuperset(fd2.lhs):
+                    tran_fd = FD(fd1.lhs, fd2.rhs)
+                    FDs.add(tran_fd)
+                if fd1.lhs.issubset(fd2.lhs) and  fd1.lhs.issubset(fd2.lhs):
+                    composite_fd = FD(fd1.lhs, fd2.rhs.union(fd1.rhs))
+                    FDs.add(composite_fd)
+
+def subset(superset):
+    s = list(superset)
+    rs = []
+    backtrack(rs, s, [], 0)
+    return rs
+
+
+
+
+def backtrack(res  , superset ,  subset , index  = 0 ):
+    if subset:
+        res.append(subset[:])
+    for i in range(index , len( superset)):
+        subset.append(superset[i])
+        backtrack(res,  superset, subset , i + 1)
+        subset.pop()
+
+
+
 
 
 def minimal_cover(FDs : FDSet) -> FDSet:
@@ -145,13 +233,59 @@ def test_fd_creation():
     print(fd1)
     print(fd2)
 def test_minimal_cover():
-    """
-    Input: B->A, D -> A, AB -> D
-    fd1 = FD.input_convert("A-> B")
-    fd2 = FD.input_convert("A-> B")
-    fd3 = FD.input_convert("A-> C")
 
     """
+    Input: B->A, D -> A, AB -> D
+    """
+    fd1 = FD.input_convert("B-> A")
+    fd2 = FD.input_convert("D-> A")
+    fd3 = FD.input_convert("A, B-> D")
+    pass
+
+def test_ir2():
+    """
+    Input: B->A, D -> A, AB -> D
+    Output: Result of additional rule
+    {B} -> {A, B}
+    {A, B} -> {A, D}
+    {A, B} -> {A, B, D}
+    {A, B} -> {D}
+    {D} -> {A, D}
+    {A, B} -> {B, D}
+    {B} -> {A}
+    {D} -> {A}}
+    """
+    fd1 = FD.input_convert("B-> A")
+    fd2 = FD.input_convert("D-> A")
+    fd3 = FD.input_convert("A, B-> D")
+    FDs = FDSet()
+    FDs.add(fd1)
+    FDs.add(fd2)
+    FDs.add(fd3)
+    Armstrong.ir2(FDs)
+    print(FDs)
+def test_ir3():
+    """
+    Input: A -> B, B -> C, C -> D
+    Output:
+    A -> B, B -> C, C -> D
+    A -> C, A -> D, B -> D,
+    But might be more additional like: A -> B, C, D will appear it fine when we finding closure
+    """
+    fd1 = FD.input_convert("A-> B")
+    fd2 = FD.input_convert("B-> C")
+    fd3 = FD.input_convert("C-> D")
+    FDs = FDSet()
+    FDs.add(fd1)
+    FDs.add(fd2)
+    FDs.add(fd3)
+    Armstrong.ir3(FDs)
+    Armstrong.ir3(FDs)
+    Armstrong.ir3(FDs)
+    print(FDs)
+
+
+
 def attribute_closure(attr_x, FDs: FDSet) -> set:
     """
     Use algorithm 15.1
@@ -177,11 +311,12 @@ def attribute_closure(attr_x, FDs: FDSet) -> set:
 
 def main():
 
+    test_ir3()
+    # test_fd_compare()
+    # test_canonical()
 
     pass
 
-    # test_fd_compare()
-    # test_canonical()
 
 if __name__ == "__main__":
     main()
