@@ -1,3 +1,6 @@
+# Author: Nguyen Khac Trung Kien @trung-kieen
+
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Iterable, override
 
@@ -13,6 +16,7 @@ def immutable_meta(name, bases, dct):
                 raise AttributeError ("Cannot assign attributes to this class")
             return type.__setattr__(cls, attr, value)
     return Meta(name, bases, dct)
+
 
 
 
@@ -51,32 +55,42 @@ class FD():
     def __eq__(self, value: object, /) -> bool:
         if not isinstance(value, FD):
             return False
-        return self.__str__  == value.__str__
+        return value.__str__() == self.__str__()
 
 
 
     @override
     def __hash__(self):
-        return hash(self.__str__)
+        return hash(self.__str__())
 
     @staticmethod
     def input_convert(raw):
         left, right = raw.split("->")
-        lhs = [prop.strip() for prop in left.strip().split(",")]
-        rhs = [prop.strip() for prop in right.strip().split(",")]
+        lhs = set(prop.strip() for prop in left.strip().split(","))
+        rhs = set(prop.strip() for prop in right.strip().split(","))
         return FD(lhs, rhs)
 
 
 
-def minimal_cover(FDs : set[FD]) -> set[FD]:
+class FDSet(set[FD]):
+    def __init__(self):
+        super().__init__(self)
+
+
+
+def minimal_cover(FDs : FDSet) -> FDSet:
     canonical_FDs = canonical(FDs)
-    return set()
+    origin =  canonical_FDs.copy()
+    infer_FDs =  canonical_FDs.copy()
+
+    # Infer FD from Armstrong rule => if the infer exist in
+    return FDSet()
 
 
 
 
 
-def canonical(FDs: set[FD]):
+def canonical(FDs: FDSet):
     s = set()
     for fd in FDs:
         s = s.union(fd.canonical_extract())
@@ -104,7 +118,7 @@ def test_canonical():
     AB -> C
     """
     fd1 = FD.input_convert("A -> B, C")
-    fd2 = FD.input_convert("A -> B, C")
+    fd2 = FD.input_convert("B -> C")
     fd3 = FD.input_convert("A -> B")
     fd4 = FD.input_convert("A, B -> C")
     s = set()
@@ -130,15 +144,44 @@ def test_fd_creation():
     fd2 = FD.input_convert(FD2_str)
     print(fd1)
     print(fd2)
+def test_minimal_cover():
+    """
+    Input: B->A, D -> A, AB -> D
+    fd1 = FD.input_convert("A-> B")
+    fd2 = FD.input_convert("A-> B")
+    fd3 = FD.input_convert("A-> C")
+
+    """
+def attribute_closure(attr_x, FDs: FDSet) -> set:
+    """
+    Use algorithm 15.1
+    Input: single attr of list, set attr
+    Output: set attr
+    """
+    x_closure  :  set
+    if isinstance(attr_x, Iterable):
+        x_closure = set(attr_x)
+    else:
+        x_closure = set()
+        x_closure.add(attr_x)
+
+    while True:
+        old_len = len(x_closure)
+        for fd in FDs:
+            if x_closure.issuperset(fd.lhs):
+                x_closure = x_closure.union(fd.rhs)
+        apply_fds_not_add_new_property: bool = old_len == len(x_closure)
+        if apply_fds_not_add_new_property:
+            break
+    return x_closure
 
 def main():
 
 
-    test_canonical()
+    pass
 
-
-
-
+    # test_fd_compare()
+    # test_canonical()
 
 if __name__ == "__main__":
     main()
