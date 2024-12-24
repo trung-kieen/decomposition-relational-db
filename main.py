@@ -73,11 +73,19 @@ class FD():
 
 
 class FDSet(set[FD]):
-    def __init__(self):
+    def __init__(self, *args):
         super().__init__(self)
+        for fd in args:
+            self.add(fd)
 
+
+class FDSets:
+    """
+    Helper method for FDSet
+    FDSet is a set of immutable FD so it guarantee unique value in this collection.
+    """
     @staticmethod
-    def closure(FDs):
+    def closure(FDs) -> FDSet:
         """
         Usage:
             Return closure set of functional dependency can inference for Armstrong ruleset
@@ -93,6 +101,62 @@ class FDSet(set[FD]):
         return inner_FDs
 
 
+    @staticmethod
+    def canonical(FDs):
+        s = set()
+        for fd in FDs:
+            s = s.union(fd.canonical_extract())
+        return s
+
+
+    @staticmethod
+    def equivalent(a : FDSet, b :FDSet ):
+        ca = FDSets.closure(a)
+        cb = FDSets.closure(b)
+        return ca.issubset(cb) and cb.issubset(ca)
+
+    @staticmethod
+    def minimal_cover(FDs : FDSet) -> FDSet:
+        """
+        Algorithm 15.2
+        """
+
+        canonical_FDs = FDSets.canonical(FDs)
+        def fd_minus_attr_lhs(fd: FD, attr):
+            f = deepcopy(fd)
+            f.lhs.remove(attr)
+            return f
+
+        def minimal_lhs(FDs):
+
+            """
+            If {F - {X -> A}} union {X - {B} -> A} is equivalent to original F
+            then replace X->A in original F with (X - {B} -> A)
+            X -> A  = target_fd
+            B = attr
+            X - B  = eliminated_lhs_fds
+            """
+            eliminated_fds =  FDs.copy()
+            for fd in list(FDs):  # Set is unorder data structure so not allow remove item when iterator itself
+                target_fd = fd.copy() # This FD may be remove attr inplace
+                for attr in list(fd.lhs):
+                    fd_minus_attr = fd_minus_attr_lhs(fd, attr)
+                    eliminated_lhs_fds = (eliminated_fds - {target_fd}) + {fd_minus_attr}
+
+                    if  len(fd_minus_attr.lhs) > 0 and  FDSets.equivalent(eliminated_lhs_fds, FDs):
+                        eliminated_fds.remove(target_fd)
+                        eliminated_fds.add(eliminated_lhs_fds)
+                        target_fd = eliminated_lhs_fds
+
+            return eliminated_fds
+
+
+        eliminated_lhs_fds = minimal_lhs(canonical_FDs)
+
+        print(eliminated_lhs_fds)
+
+        # Infer FD from Armstrong rule => if the infer exist in
+        return FDSet()
 
 
 class Armstrong:
@@ -166,23 +230,11 @@ def backtrack(res  , superset ,  subset , index  = 0 ):
 
 
 
-def minimal_cover(FDs : FDSet) -> FDSet:
-    canonical_FDs = canonical(FDs)
-    origin =  canonical_FDs.copy()
-    infer_FDs =  canonical_FDs.copy()
-
-    # Infer FD from Armstrong rule => if the infer exist in
-    return FDSet()
 
 
 
 
 
-def canonical(FDs: FDSet):
-    s = set()
-    for fd in FDs:
-        s = s.union(fd.canonical_extract())
-    return s
 
 
 class Relation:
@@ -214,14 +266,14 @@ def test_canonical():
     s.add(fd2)
     s.add(fd3)
     s.add(fd4)
-    c = canonical(s)
+    c = FDSets.canonical(s)
     print(c)
 def test_fd_compare():
     fd1 = FD.input_convert("A-> B")
     fd2 = FD.input_convert("A-> B")
     fd3 = FD.input_convert("A-> C")
-    print(fd1 == fd2)
-    print(fd1 == fd3)
+    if fd1 != fd2: print("ERROR compare same FD")
+    if fd1 == fd3: print("ERROR compare difference FD")
 
 
 
@@ -230,8 +282,13 @@ def test_fd_creation():
     fd1 = FD.input_convert(FD1_str)
     FD2_str = "a -> b, e"
     fd2 = FD.input_convert(FD2_str)
-    print(fd1)
-    print(fd2)
+    fd3 = FD(["a", "b"], ["c", "d"])
+    fd4 = FD(["a"], ["b", "e"])
+
+
+    if fd1 != fd3: print("ERROR creation from string")
+    if fd2 != fd4: print("ERROR creation from string")
+
 def test_minimal_cover():
 
     """
@@ -240,6 +297,7 @@ def test_minimal_cover():
     fd1 = FD.input_convert("B-> A")
     fd2 = FD.input_convert("D-> A")
     fd3 = FD.input_convert("A, B-> D")
+    # TODO
     pass
 
 def test_ir2():
@@ -263,7 +321,9 @@ def test_ir2():
     FDs.add(fd2)
     FDs.add(fd3)
     Armstrong.ir2(FDs)
-    print(FDs)
+    # print(FDs)
+    if FD.input_convert("B -> A, B") not in FDs: print("ERROR IR2")
+    if FD.input_convert("A, B -> A, B, D") not in FDs: print("ERROR IR2")
 def test_ir3():
     """
     Input: A -> B, B -> C, C -> D
@@ -275,44 +335,59 @@ def test_ir3():
     fd1 = FD.input_convert("A-> B")
     fd2 = FD.input_convert("B-> C")
     fd3 = FD.input_convert("C-> D")
-    FDs = FDSet()
-    FDs.add(fd1)
-    FDs.add(fd2)
-    FDs.add(fd3)
-    Armstrong.ir3(FDs)
-    Armstrong.ir3(FDs)
-    Armstrong.ir3(FDs)
-    print(FDs)
+    fds = FDSet()
+    fds.add(fd1)
+    fds.add(fd2)
+    fds.add(fd3)
+    Armstrong.ir3(fds)
+    Armstrong.ir3(fds)
+    Armstrong.ir3(fds)
+    if FD.input_convert("A -> C") not in fds: print("ERROR transitive")
+    if FD.input_convert("A -> D") not in fds: print("ERROR transitive")
+    # print(fds)
 
 
+def test_fds_equivalent():
+    FD1 = FDSet(FD.input_convert("A-> B"), FD.input_convert("B-> C"), FD.input_convert("A, B-> D"))
+    FD2 = FDSet(FD.input_convert("A -> B"), FD.input_convert("B-> C"), FD.input_convert("A-> C"), FD.input_convert("A-> D"))
 
-def attribute_closure(attr_x, FDs: FDSet) -> set:
+    if not FDSets.equivalent(FD1, FD2): print("ERROR compare to equivalent fds")
+
+class AttributeSet(set[str]):
+    def __init__(self, *args):
+        for v in args:
+            self.add(v)
+
+class AttributeSets:
     """
-    Use algorithm 15.1
-    Input: single attr of list, set attr
-    Output: set attr
+    Helper method work around attribute in relation
     """
-    x_closure  :  set
-    if isinstance(attr_x, Iterable):
-        x_closure = set(attr_x)
-    else:
-        x_closure = set()
-        x_closure.add(attr_x)
 
-    while True:
-        old_len = len(x_closure)
-        for fd in FDs:
-            if x_closure.issuperset(fd.lhs):
-                x_closure = x_closure.union(fd.rhs)
-        apply_fds_not_add_new_property: bool = old_len == len(x_closure)
-        if apply_fds_not_add_new_property:
-            break
-    return x_closure
+
+    @staticmethod
+    def closure(atrs: AttributeSet, FDs: FDSet) -> set:
+        """
+        Use algorithm 15.1
+        Input: single attr of list, set attr
+        Output: set attr
+        """
+        x_closure   = atrs.copy()
+        while True:
+            old_len = len(x_closure)
+            for fd in FDs:
+                if x_closure.issuperset(fd.lhs):
+                    x_closure = x_closure.union(fd.rhs)
+            apply_fds_not_add_new_property: bool = old_len == len(x_closure)
+            if apply_fds_not_add_new_property:
+                break
+        return x_closure
 
 def main():
-
+    test_fd_compare()
     test_ir3()
-    # test_fd_compare()
+    test_ir2()
+    test_fd_creation()
+    test_fds_equivalent()
     # test_canonical()
 
     pass
