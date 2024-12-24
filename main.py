@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Iterable, override
+from typing import Iterable, override, Self
 
 # Use to make FD as immutable => able to add in set
 def immutable_meta(name, bases, dct):
@@ -77,6 +77,14 @@ class FDSet(set[FD]):
         super().__init__(self)
         for fd in args:
             self.add(fd)
+    def iscover(self, other:Self ) -> bool:
+        # https://www.javatpoint.com/dbms-equivalence-of-functional-dependency
+        for fd in other:
+            attrs = fd.lhs
+
+            if not AttributeSets.closure(attrs, self).issuperset(AttributeSets.closure(attrs, other)):
+                return False
+        return True
 
 
 class FDSets:
@@ -109,11 +117,11 @@ class FDSets:
         return s
 
 
+
+
     @staticmethod
     def equivalent(a : FDSet, b :FDSet ):
-        ca = FDSets.closure(a)
-        cb = FDSets.closure(b)
-        return ca.issubset(cb) and cb.issubset(ca)
+        return a.iscover(b) and b.iscover(a)
 
     @staticmethod
     def minimal_cover(FDs : FDSet) -> FDSet:
@@ -122,41 +130,51 @@ class FDSets:
         """
 
         canonical_FDs = FDSets.canonical(FDs)
-        def fd_minus_attr_lhs(fd: FD, attr):
-            f = deepcopy(fd)
-            f.lhs.remove(attr)
-            return f
-
-        def minimal_lhs(FDs):
-
-            """
-            If {F - {X -> A}} union {X - {B} -> A} is equivalent to original F
-            then replace X->A in original F with (X - {B} -> A)
-            X -> A  = target_fd
-            B = attr
-            X - B  = eliminated_lhs_fds
-            """
-            eliminated_fds =  FDs.copy()
-            for fd in list(FDs):  # Set is unorder data structure so not allow remove item when iterator itself
-                target_fd = fd.copy() # This FD may be remove attr inplace
-                for attr in list(fd.lhs):
-                    fd_minus_attr = fd_minus_attr_lhs(fd, attr)
-                    eliminated_lhs_fds = (eliminated_fds - {target_fd}) + {fd_minus_attr}
-
-                    if  len(fd_minus_attr.lhs) > 0 and  FDSets.equivalent(eliminated_lhs_fds, FDs):
-                        eliminated_fds.remove(target_fd)
-                        eliminated_fds.add(eliminated_lhs_fds)
-                        target_fd = eliminated_lhs_fds
-
-            return eliminated_fds
 
 
-        eliminated_lhs_fds = minimal_lhs(canonical_FDs)
+
+        eliminated_lhs_fds = FDSets.minimal_lhs(canonical_FDs)
 
         print(eliminated_lhs_fds)
 
         # Infer FD from Armstrong rule => if the infer exist in
         return FDSet()
+
+
+
+    @staticmethod
+    def minimal_lhs(FDs):
+
+
+        """
+        If {F - {X -> A}} union {X - {B} -> A} is equivalent to original F
+        then replace X->A in original F with (X - {B} -> A)
+        X -> A  = target_fd
+        B = attr
+        X - B  = eliminated_lhs_fds
+        """
+
+        def fd_minus_attr_lhs(fd: FD, attr):
+            f = deepcopy(fd)
+            f.lhs.remove(attr)
+            return f
+
+
+        eliminated_fds =  FDs.copy()
+        for fd in list(FDs):  # Set is unorder data structure so not allow remove item when iterator itself
+            target_fd = fd.copy() # This FD may be remove attr inplace
+            for attr in list(fd.lhs):
+                fd_minus_attr = fd_minus_attr_lhs(fd, attr)
+                eliminated_lhs_fds = (eliminated_fds - {target_fd}) + {fd_minus_attr}
+
+                if  len(fd_minus_attr.lhs) > 0 and  FDSets.equivalent(eliminated_lhs_fds, FDs):
+                    eliminated_fds.remove(target_fd)
+                    eliminated_fds.add(eliminated_lhs_fds)
+                    target_fd = eliminated_lhs_fds
+
+        return eliminated_fds
+
+
 
 
 class Armstrong:
@@ -174,8 +192,7 @@ class Armstrong:
         AB -> CD <=> {AB -> BCD, AB -> ACD, AB -> ABCD} // all subset available for left hand side
         """
 
-        old = FDs.copy()
-        for fd in old:
+        for fd in list(FDs):
             # Add all posible subset of left hand to right hand for additional rule
             subsets = subset(fd.lhs)
             for s in subsets:
@@ -188,6 +205,7 @@ class Armstrong:
         """
         IR3: A -> B and B -> C then we have A -> C
 
+
         Additional i think it should reconstruct right hand side from composition to make sure transitive work
         For example:
         A -> B
@@ -197,10 +215,10 @@ class Armstrong:
         Common sense
         A -> B and A -> C then we have A -> B, C
         BC -> E
+        (UPDATE this is IR5 but ok if add it to IR3?? TODO  refactor )
         """
-        old = FDs.copy()
-        for fd1 in old:
-            for fd2 in old:
+        for fd1 in list(FDs):
+            for fd2 in list(FDs):
                 if fd1 == fd2: continue
                 if fd1.rhs.issuperset(fd2.lhs):
                     tran_fd = FD(fd1.lhs, fd2.rhs)
@@ -208,6 +226,9 @@ class Armstrong:
                 if fd1.lhs.issubset(fd2.lhs) and  fd1.lhs.issubset(fd2.lhs):
                     composite_fd = FD(fd1.lhs, fd2.rhs.union(fd1.rhs))
                     FDs.add(composite_fd)
+
+
+
 
 def subset(superset):
     s = list(superset)
@@ -267,7 +288,10 @@ def test_canonical():
     s.add(fd3)
     s.add(fd4)
     c = FDSets.canonical(s)
-    print(c)
+    if FD.input_convert("A -> B") not in c: print("ERROR canonical")
+    if FD.input_convert("A -> C") not in c: print("ERROR canonical")
+    if FD.input_convert("B -> C") not in c: print("ERROR canonical")
+    if FD.input_convert("A, B -> C") not in c: print("ERROR canonical")
 def test_fd_compare():
     fd1 = FD.input_convert("A-> B")
     fd2 = FD.input_convert("A-> B")
@@ -346,11 +370,41 @@ def test_ir3():
     if FD.input_convert("A -> D") not in fds: print("ERROR transitive")
     # print(fds)
 
+def test_attr_closure():
+    fds = FDSet(
+        FD.input_convert("A -> C, D"),
+        FD.input_convert("E -> A , H ")
+    )
+    attr_closure = AttributeSets.closure(AttributeSet("E"), fds)
+
+    a = ["A", "E", "H" , "C", "D"]
+    for v in a:
+        if v not in attr_closure: print("ERROR attr closure")
 
 def test_fds_equivalent():
     FD1 = FDSet(FD.input_convert("A-> B"), FD.input_convert("B-> C"), FD.input_convert("A, B-> D"))
     FD2 = FDSet(FD.input_convert("A -> B"), FD.input_convert("B-> C"), FD.input_convert("A-> C"), FD.input_convert("A-> D"))
 
+    if not FDSets.equivalent(FD1, FD2): print("ERROR compare to equivalent fds")
+
+
+def test_fds_equivalent_2():
+    # FD1 = FDSet(FD.input_convert("A -> B"), FD.input_convert("B-> C"))
+    # FD2 = FDSet(FD.input_convert("A -> C"), FD.input_convert("A -> B"), FD.input_convert("A-> C"))
+    # print(*sorted(FDSets.closure(FD1), key = lambda x: list(x.lhs)[0] ) , sep = "\n", end = "\n =============== \n")
+    # print(*sorted(FDSets.closure(FD2), key = lambda x: list(x.lhs)[0] ) , sep = "\n", end = "\n =============== \n")
+    # if not FDSets.equivalent(FD1, FD2): print("ERROR compare to equivalent fds")
+
+    FD1 = FDSet(
+        FD.input_convert("A -> C"),
+        FD.input_convert("A, C -> D"),
+        FD.input_convert("E -> A, D"),
+        FD.input_convert("E-> H"))
+    FD2 = FDSet(
+        FD.input_convert("A -> C, D"),
+        FD.input_convert("E  -> A, H "))
+    # print(*sorted(FDSets.closure(FD1), key = lambda x: list(x.lhs)[0] ) , sep = "\n", end = "\n =============== \n")
+    # print(*sorted(FDSets.closure(FD2), key = lambda x: list(x.lhs)[0] ) , sep = "\n", end = "\n =============== \n")
     if not FDSets.equivalent(FD1, FD2): print("ERROR compare to equivalent fds")
 
 class AttributeSet(set[str]):
@@ -383,12 +437,17 @@ class AttributeSets:
         return x_closure
 
 def main():
+
+    # TODO: Convert pure unit test not base on language
     test_fd_compare()
     test_ir3()
     test_ir2()
     test_fd_creation()
+    test_attr_closure()
     test_fds_equivalent()
-    # test_canonical()
+    test_fds_equivalent_2()
+    test_canonical()
+
 
     pass
 
