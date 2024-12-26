@@ -84,7 +84,9 @@ class FDSet(set[FD]):
         # https://stackoverflow.com/questions/10810926/can-a-python-class-return-a-new-instance-of-its-class
         return type(self)(self.copy() - other.copy())
     def __add__(self, other) -> Self:
-        return type(self)(self.copy() - other.copy())
+
+        a = self.copy().union(other.copy())
+        return type(self)(list(a))
 
 
 
@@ -218,25 +220,25 @@ class FDSets:
         """
 
         def fd_minus_attr_lhs(fd: FD, attr):
-            f = fd
+            f = deepcopy(fd)
             f.lhs.remove(attr)
             return f
 
 
         eliminated_fds: FDSet =  FDs
 
-        print(type(eliminated_fds))
         for fd in list(FDs):  # Set is unorder data structure so not allow remove item when iterator itself
-            print(fd)
             target_fd = fd # This FD may be remove attr inplace
 
+            if len(fd.lhs) <=1: continue
             for attr in list(fd.lhs):
                 fd_minus_attr = fd_minus_attr_lhs(fd, attr)
-                eliminated_lhs_fds = (eliminated_fds  -    FDSet([target_fd]))  + FDSet([fd_minus_attr])
+                B = FDSet([target_fd])
+                A = FDSet([fd_minus_attr])
+                eliminated_lhs_fds = (eliminated_fds  -    B)  +  A
 
                 if  len(fd_minus_attr.lhs) > 0 and  FDSets.equivalent(eliminated_lhs_fds, FDs):
-                    eliminated_fds.remove(target_fd)
-                    eliminated_fds.add(eliminated_lhs_fds)
+                    eliminated_fds = eliminated_lhs_fds
                     target_fd = eliminated_lhs_fds
 
         return eliminated_fds
@@ -414,7 +416,9 @@ def test_lhs_minimize():
     B -> D (Ok  B -> AB and B -> D so we know that B -> D)
     """
     fds = FDSet([FD.input_convert("B -> A"), FD.input_convert( "D -> A") , FD.input_convert("A, B -> D")])
-    print(FDSets.minimal_lhs(fds))
+    rs = FDSets.minimal_lhs(fds)
+    if rs.__contains__(FD.input_convert("A, B -> D")): print("ERROR eliminated left hand side")
+    if not rs.__contains__(FD.input_convert("B -> D")): print("ERROR eliminated left hand side")
 
 
 
@@ -478,7 +482,6 @@ def main():
     test_fds_equivalent()
     test_fds_equivalent_2()
     test_canonical()
-
     test_lhs_minimize()
     pass
 
