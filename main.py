@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from typing import Self, overload
 from typing import Iterable, override
 
+def scan(*args, ** kwargs):
+    print(args, kwargs)
+
 # Use to make FD as immutable => able to add in set
 def immutable_meta(name, bases, dct):
     class Meta(type):
@@ -20,6 +23,8 @@ def immutable_meta(name, bases, dct):
 
 class FD():
     __metaclass__ = immutable_meta
+    _scan_name = "Functional Dependency"
+
     def __init__(self, lhs: Iterable, rhs: Iterable) -> None:
         """
         Example:
@@ -30,10 +35,15 @@ class FD():
         self.lhs  = set(lhs)
         self.rhs  = set(rhs)
 
+    @classmethod
+    def scan(cls):
+        a=scan(f"Enter {cls._scan_name }: ")
+        return cls.translate_semantic(a)
+
     @override
     def __str__(self) -> str:
-        left = "{" + ", ".join(self.lhs) + "}"
-        right= "{" + ", ".join(self.rhs) + "}"
+        left = "{" + ", ".join(sorted(self.lhs)) + "}"
+        right= "{" + ", ".join(sorted(self.rhs)) + "}"
         s = left + " -> " + right
         return s
 
@@ -53,7 +63,13 @@ class FD():
         return hash(self.__str__())
 
     @staticmethod
-    def input_convert(raw):
+    def translate_semantic(raw):
+        """
+        Translate natural language of FD to immutable object
+        Using `->` to seprate left and right side
+        Using comma to seprate attribute name
+        Example: translate_semantic("A, B -> C")
+        """
         left, right = raw.split("->")
         lhs = set(prop.strip() for prop in left.strip().split(","))
         rhs = set(prop.strip() for prop in right.strip().split(","))
@@ -102,7 +118,7 @@ class Armstrong:
     """
 
     @staticmethod
-    def ir2(FDs: FDSet):
+    def apply_ir2(FDs: FDSet):
         """
         IR2:
         Case 1
@@ -119,7 +135,12 @@ class Armstrong:
 
 
     @staticmethod
-    def ir3(FDs: FDSet):
+    def apply_ir4(FDs:FDSet):
+        for fd in FDs:
+            subsets = subset(fd.lhs)
+            FDs.add(FD(fd.lhs, subsets))
+    @staticmethod
+    def apply_ir3_ir5(FDs: FDSet):
         """
         IR3: A -> B and B -> C then we have A -> C
 
@@ -160,8 +181,8 @@ class FDSets:
         inner_FDs = FDs.copy() # Avoid inplace change
         while True:
             old_len  = len(inner_FDs)
-            Armstrong.ir2(inner_FDs)
-            Armstrong.ir3(inner_FDs)
+            Armstrong.apply_ir2(inner_FDs)
+            Armstrong.apply_ir3_ir5(inner_FDs)
             no_more_inference_fd =  old_len == len(inner_FDs)
             if no_more_inference_fd:
                 break
@@ -291,9 +312,10 @@ def backtrack(res  , superset ,  subset , index  = 0 ):
 
 
 class Relation:
-    def __init__(self, name, FDs) -> None:
+    def __init__(self, name: str, FDs: FDSet, unique_key   ) -> None:
         self.name = name
         self.FDs  = FDs
+
 
 
 def test_canonical():
@@ -310,24 +332,24 @@ def test_canonical():
     B -> C
     AB -> C
     """
-    fd1 = FD.input_convert("A -> B, C")
-    fd2 = FD.input_convert("B -> C")
-    fd3 = FD.input_convert("A -> B")
-    fd4 = FD.input_convert("A, B -> C")
+    fd1 = FD.translate_semantic("A -> B, C")
+    fd2 = FD.translate_semantic("B -> C")
+    fd3 = FD.translate_semantic("A -> B")
+    fd4 = FD.translate_semantic("A, B -> C")
     s = set()
     s.add(fd1)
     s.add(fd2)
     s.add(fd3)
     s.add(fd4)
     c = FDSets.canonical(s)
-    if FD.input_convert("A -> B") not in c: print("ERROR canonical")
-    if FD.input_convert("A -> C") not in c: print("ERROR canonical")
-    if FD.input_convert("B -> C") not in c: print("ERROR canonical")
-    if FD.input_convert("A, B -> C") not in c: print("ERROR canonical")
+    if FD.translate_semantic("A -> B") not in c: print("ERROR canonical")
+    if FD.translate_semantic("A -> C") not in c: print("ERROR canonical")
+    if FD.translate_semantic("B -> C") not in c: print("ERROR canonical")
+    if FD.translate_semantic("A, B -> C") not in c: print("ERROR canonical")
 def test_fd_compare():
-    fd1 = FD.input_convert("A-> B")
-    fd2 = FD.input_convert("A-> B")
-    fd3 = FD.input_convert("A-> C")
+    fd1 = FD.translate_semantic("A-> B")
+    fd2 = FD.translate_semantic("A-> B")
+    fd3 = FD.translate_semantic("A-> C")
     if fd1 != fd2: print("ERROR compare same FD")
     if fd1 == fd3: print("ERROR compare difference FD")
 
@@ -335,9 +357,9 @@ def test_fd_compare():
 
 def test_fd_creation():
     FD1_str = "a, b -> c, d"
-    fd1 = FD.input_convert(FD1_str)
+    fd1 = FD.translate_semantic(FD1_str)
     FD2_str = "a -> b, e"
-    fd2 = FD.input_convert(FD2_str)
+    fd2 = FD.translate_semantic(FD2_str)
     fd3 = FD(["a", "b"], ["c", "d"])
     fd4 = FD(["a"], ["b", "e"])
 
@@ -359,18 +381,20 @@ def test_ir2():
     {B} -> {A}
     {D} -> {A}}
     """
-    fd1 = FD.input_convert("B-> A")
-    fd2 = FD.input_convert("D-> A")
-    fd3 = FD.input_convert("A, B-> D")
+    fd1 = FD.translate_semantic("B-> A")
+    fd2 = FD.translate_semantic("D-> A")
+    fd3 = FD.translate_semantic("A, B-> D")
     FDs = FDSet()
     FDs.add(fd1)
     FDs.add(fd2)
     FDs.add(fd3)
-    Armstrong.ir2(FDs)
+    Armstrong.apply_ir2(FDs)
     # print(FDs)
-    if FD.input_convert("B -> A, B") not in FDs: print("ERROR IR2")
-    if FD.input_convert("A, B -> A, B, D") not in FDs: print("ERROR IR2")
-def test_ir3():
+    if FD.translate_semantic("B -> A, B") not in FDs:
+        print("ERROR IR2")
+    if FD.translate_semantic("A, B -> A, B, D") not in FDs:
+        print("ERROR IR2")
+def test_ir3_ir5():
     """
     Input: A -> B, B -> C, C -> D
     Output:
@@ -378,34 +402,36 @@ def test_ir3():
     A -> C, A -> D, B -> D,
     But might be more additional like: A -> B, C, D will appear it fine when we finding closure
     """
-    fd1 = FD.input_convert("A-> B")
-    fd2 = FD.input_convert("B-> C")
-    fd3 = FD.input_convert("C-> D")
+    fd1 = FD.translate_semantic("A-> B")
+    fd2 = FD.translate_semantic("B-> C")
+    fd3 = FD.translate_semantic("C-> D")
     fds = FDSet()
     fds.add(fd1)
     fds.add(fd2)
     fds.add(fd3)
-    Armstrong.ir3(fds)
-    Armstrong.ir3(fds)
-    Armstrong.ir3(fds)
-    if FD.input_convert("A -> C") not in fds: print("ERROR transitive")
-    if FD.input_convert("A -> D") not in fds: print("ERROR transitive")
-    # print(fds)
+    Armstrong.apply_ir3_ir5(fds)
+    Armstrong.apply_ir3_ir5(fds)
+    Armstrong.apply_ir3_ir5(fds)
+    if FD.translate_semantic("A -> C") not in fds: print("ERROR transitive")
+    if FD.translate_semantic("A -> D") not in fds: print("ERROR transitive")
 
+def test_ir4():
+    # TODO:
+    pass
 def test_attr_closure():
     fds = FDSet([
-        FD.input_convert("A -> C, D"),
-        FD.input_convert("E -> A , H ")]
+        FD.translate_semantic("A -> C, D"),
+        FD.translate_semantic("E -> A , H ")]
     )
-    attr_closure = AttributeSets.closure(AttributeSet("E"), fds)
+    attr_closure = AttributeSets.closure(set(["E"]), fds)
 
     a = ["A", "E", "H" , "C", "D"]
     for v in a:
         if v not in attr_closure: print("ERROR attr closure")
 
 def test_fds_equivalent():
-    FD1 = FDSet([FD.input_convert("A-> B"), FD.input_convert("B-> C"), FD.input_convert("A, B-> D")])
-    FD2 = FDSet([FD.input_convert("A -> B"), FD.input_convert("B-> C"), FD.input_convert("A-> C"), FD.input_convert("A-> D")])
+    FD1 = FDSet([FD.translate_semantic("A-> B"), FD.translate_semantic("B-> C"), FD.translate_semantic("A, B-> D")])
+    FD2 = FDSet([FD.translate_semantic("A -> B"), FD.translate_semantic("B-> C"), FD.translate_semantic("A-> C"), FD.translate_semantic("A-> D")])
 
     if not FDSets.equivalent(FD1, FD2): print("ERROR compare to equivalent fds")
 
@@ -420,52 +446,53 @@ def test_lhs_minimize():
     D -> A
     B -> D (Ok  B -> AB and B -> D so we know that B -> D)
     """
-    fds = FDSet([FD.input_convert("B -> A"), FD.input_convert( "D -> A") , FD.input_convert("A, B -> D")])
+    fds = FDSet([FD.translate_semantic("B -> A"), FD.translate_semantic( "D -> A") , FD.translate_semantic("A, B -> D")])
     rs = FDSets._minimal_lhs(fds)
-    if rs.__contains__(FD.input_convert("A, B -> D")): print("ERROR eliminated left hand side")
-    if not rs.__contains__(FD.input_convert("B -> D")): print("ERROR eliminated left hand side")
+    if rs.__contains__(FD.translate_semantic("A, B -> D")): print("ERROR eliminated left hand side")
+    if not rs.__contains__(FD.translate_semantic("B -> D")): print("ERROR eliminated left hand side")
 
 
 
 
 def test_fds_equivalent_2():
-    # FD1 = FDSet(FD.input_convert("A -> B"), FD.input_convert("B-> C"))
-    # FD2 = FDSet(FD.input_convert("A -> C"), FD.input_convert("A -> B"), FD.input_convert("A-> C"))
-    # print(*sorted(FDSets.closure(FD1), key = lambda x: list(x.lhs)[0] ) , sep = "\n", end = "\n =============== \n")
-    # print(*sorted(FDSets.closure(FD2), key = lambda x: list(x.lhs)[0] ) , sep = "\n", end = "\n =============== \n")
-    # if not FDSets.equivalent(FD1, FD2): print("ERROR compare to equivalent fds")
 
     FD1 = FDSet([
-        FD.input_convert("A -> C"),
-        FD.input_convert("A, C -> D"),
-        FD.input_convert("E -> A, D"),
-        FD.input_convert("E-> H")])
+        FD.translate_semantic("A -> C"),
+        FD.translate_semantic("A, C -> D"),
+        FD.translate_semantic("E -> A, D"),
+        FD.translate_semantic("E-> H")])
     FD2 = FDSet([
-        FD.input_convert("A -> C, D"),
-        FD.input_convert("E  -> A, H ")])
-    # print(*sorted(FDSets.closure(FD1), key = lambda x: list(x.lhs)[0] ) , sep = "\n", end = "\n =============== \n")
-    # print(*sorted(FDSets.closure(FD2), key = lambda x: list(x.lhs)[0] ) , sep = "\n", end = "\n =============== \n")
+        FD.translate_semantic("A -> C, D"),
+        FD.translate_semantic("E  -> A, H ")])
     if not FDSets.equivalent(FD1, FD2): print("ERROR compare to equivalent fds")
 
 
 
 def test_minimal_cover():
     A = FDSet([
-        FD.input_convert("B -> A"),
-        FD.input_convert("D -> A"),
-        FD.input_convert("A, B -> D")
+        FD.translate_semantic("B -> A"),
+        FD.translate_semantic("D -> A"),
+        FD.translate_semantic("A, B -> D")
     ])
 
     A_min = FDSets.minimal_cover(A)
     if len(A_min) != 2: print("ERROR: minimial cover")
-    if FD.input_convert("B -> D") not in A_min:  print("ERROR: minimial cover")
-    if FD.input_convert("D -> A") not in A_min:  print("ERROR: minimial cover")
+    if FD.translate_semantic("B -> D") not in A_min:  print("ERROR: minimial cover")
+    if FD.translate_semantic("D -> A") not in A_min:  print("ERROR: minimial cover")
 
 
-class AttributeSet(set[str]):
-    def __init__(self, *args):
-        for v in args:
-            self.add(v)
+def test_find_primary_key():
+    attrs = set(["A","B","C","D","E","F","G","H","I","J"])
+
+    fds = FDSet(
+        [FD.translate_semantic("A, B -> C"),
+        FD.translate_semantic("B, D -> E, F"),
+        FD.translate_semantic("A, D -> G, H"),
+        FD.translate_semantic("A -> I"),
+        FD.translate_semantic("H -> J")]
+    )
+    r = AttributeSets.primary_key(attrs,fds)
+    if r != set(["A", "B", "D"]): print("ERROR find key")
 
 class AttributeSets:
     """
@@ -474,13 +501,13 @@ class AttributeSets:
 
 
     @staticmethod
-    def closure(atrs: set, FDs: FDSet) -> set:
+    def closure(attrs: set, FDs: FDSet) -> set:
         """
         Use algorithm 15.1
         Input: single attr of list, set attr
         Output: set attr
         """
-        x_closure   = atrs.copy()
+        x_closure   = attrs.copy()
         while True:
             old_len = len(x_closure)
             for fd in FDs:
@@ -491,12 +518,28 @@ class AttributeSets:
                 break
         return x_closure
 
+
+    @staticmethod
+    def primary_key(attrs: set, FDs: FDSet) -> set:
+        key = attrs
+        for attr in list(key):
+            reduce_attrs = key - set([attr])
+            if AttributeSets.is_superkey(reduce_attrs, attrs, FDs):
+                key = reduce_attrs
+        return key
+    @staticmethod
+    def is_superkey(test_for_key : set, all_attrs: set, FDs: FDSet) -> bool:
+        return AttributeSets.closure(test_for_key, FDs) == all_attrs
+
+
+
 def main():
 
     # TODO: Convert pure unit test not base on language
     test_fd_compare()
-    test_ir3()
+    test_ir3_ir5()
     test_ir2()
+    test_ir4()
     test_fd_creation()
     test_attr_closure()
     test_fds_equivalent()
@@ -504,8 +547,7 @@ def main():
     test_canonical()
     test_lhs_minimize()
     test_minimal_cover()
-    pass
-
+    test_find_primary_key()
 
 if __name__ == "__main__":
     main()
