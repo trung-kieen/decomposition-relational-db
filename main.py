@@ -346,6 +346,22 @@ def backtrack(res  , superset ,  subset , index  = 0 ):
 class Relation:
     _name_counter = 0
     def __init__(self,   attrs: set |None = None, FDs: FDSet | None = None,name: str = "", candidate_keys: Iterable[set]  = [] , primary_key: None | set= None  ) -> None:
+        """
+        Example 1: Relation construct from FDSet will use all attribute exist in FDSet and primary_key define following previous data
+        Relation(Fds = FDSet([
+            FD.translate_semantic("A -> B"),
+            FD.translate_semantic("A -> C"),
+        ]))
+        So from FDSet can determine:
+        self.attrs = set(["A", "B", "C"])
+        self.primary_key = "A"
+
+        Example 2: Relation construct from attribute and relation name ony will use composite of all attribute as primary_key
+        Relation.translate_semantic("R1 (A, B, C)")
+        Then we have:
+        self.attrs = set(["A", "B", "C"])
+        self.primary_key = set(["A", "B", "C"])
+        """
         self.name = name if name else self.__class__.generate_name()
         self.FDs  = FDs
         # one of the candidate key will be primary key
@@ -447,13 +463,18 @@ class Relation:
 
 
         relations  = []
+        have_relation_cover_pk = False
         # Constructor relation from list of minimal cover fd
         for i in range(len(relation_fd)):
             attrs = relation_attribute_closure[i]
             r  = Relation(attrs = attrs, FDs = FDSet(relation_fd[i]))
             relations.append(r)
+            if attrs.issuperset(pk):
+                have_relation_cover_pk = True
 
-
+        if not have_relation_cover_pk:
+            r  = Relation(attrs = pk, FDs = FDSet())
+            relations.append(r)
         return relations
 
 
