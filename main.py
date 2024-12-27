@@ -1,13 +1,14 @@
 # Author: Nguyen Khac Trung Kien @trung-kieen
 
-from copy import deepcopy, copy
-from dataclasses import dataclass
+from copy import deepcopy
 from typing import Self, overload
 from typing import Iterable, override
 
-def scan(*args, ** kwargs):
+def scan(*args ):
+    input(args)
+def echo(*args, **kwargs,):
+    # TODO: logger
     print(args, kwargs)
-
 # Use to make FD as immutable => able to add in set
 def immutable_meta(name, bases, dct):
     class Meta(type):
@@ -32,8 +33,8 @@ class FD():
         => lhs = set([a, b])
         => rhs = set([c, d])
         """
-        self.lhs  = set(lhs)
-        self.rhs  = set(rhs)
+        self.lhs: set[str]  = set(lhs)
+        self.rhs: set[str]  = set(rhs)
 
     @classmethod
     def scan(cls):
@@ -75,14 +76,14 @@ class FD():
         rhs = set(prop.strip() for prop in right.strip().split(","))
         return FD(lhs, rhs)
 
-
-
+    def attrs (self) -> set:
+        return self.lhs.union(self.rhs)
 
 
 
 
 class FDSet(set[FD]):
-    def __init__(self, ir = None):
+    def __init__(self, ir: Iterable | None = None):
         """
         Input a iterator of FD or None
         EX1:  a = FDSet() // Empty FDSet
@@ -109,6 +110,12 @@ class FDSet(set[FD]):
         return type(self)(list(a))
 
 
+
+    def attrs(self):
+        s = set()
+        for fd in self:
+            s= s.union(fd.attrs())
+        return s
 
 
 class Armstrong:
@@ -236,7 +243,32 @@ class FDSets:
             if FDSets.equivalent(eliminated_lhs_fds, test_removed_fd_fds ):
                 eliminated_lhs_fds = test_removed_fd_fds
 
-        return eliminated_lhs_fds
+
+
+        # merge right hand side
+        lsh_sorted = sorted(eliminated_lhs_fds, key = lambda x: x.lhs)
+        if len(lsh_sorted) == 0 : return FDSet()
+
+
+
+        left  = lsh_sorted[0].lhs
+
+
+        merged_fds = FDSet()
+
+        right_attrs_to_merge =  lsh_sorted[0].rhs.copy()
+        for i in range(1, len(lsh_sorted)):
+            if left == lsh_sorted[i].lhs:
+                right_attrs_to_merge = right_attrs_to_merge.union(lsh_sorted[i].rhs)
+            else:
+                merged_fds.add(FD(left, right_attrs_to_merge))
+                right_attrs_to_merge = lsh_sorted[i].rhs.copy()
+                left  = lsh_sorted[i].lhs
+        else:
+                merged_fds.add(FD(left, right_attrs_to_merge))
+
+
+        return merged_fds
 
 
 
@@ -312,9 +344,124 @@ def backtrack(res  , superset ,  subset , index  = 0 ):
 
 
 class Relation:
-    def __init__(self, name: str, FDs: FDSet, unique_key   ) -> None:
-        self.name = name
+    _name_counter = 0
+    def __init__(self,   attrs: set |None = None, FDs: FDSet | None = None,name: str = "", candidate_keys: Iterable[set]  = [] , primary_key: None | set= None  ) -> None:
+        self.name = name if name else self.__class__.generate_name()
         self.FDs  = FDs
+        # one of the candidate key will be primary key
+        self.candidate_keys = candidate_keys
+        if not FDs: return
+        self.attrs = attrs  if attrs else FDs.attrs()
+        self.primary_key = primary_key if primary_key else None
+        if (not self.primary_key):
+            self.primary_key = self._primary_key()
+
+    @classmethod
+    def generate_name(cls):
+        cls._name_counter +=1
+        return  "R" + str(cls._name_counter)
+
+
+    def __repr__(self) -> str:
+        return self.__str__()
+    @override
+    def __str__(self):
+        relation_name = f"{self.name}({", ".join(self.attrs)})"
+
+        if self.primary_key:
+            relation_name += "\n" + f"Primary Key: {attributes_repr(self.primary_key)}"
+
+        if self.candidate_keys:
+            candidate_name = "Unique: "
+            candidate_name += ", ".join(attributes_repr(key) for key in self.candidate_keys)
+            relation_name += "\n" + candidate_name
+        if self.FDs:
+            relation_name += "\n" + self.FDs.__str__()
+        return relation_name
+    @staticmethod
+    def translate_semantic(raw: str):
+        """
+        Example:
+        Input: raw = R1(A, B, C, D)
+        """
+        raw = raw.strip()
+        name_resparete = raw.find("(")
+        name = raw[: name_resparete]
+        attrs = set(raw[name_resparete:].strip()[1: -1].split(","))
+        return Relation(attrs = attrs, name=name)
+
+    def _isvalid_key(self):
+        if self.primary_key and self.FDs:
+            attr_closure = AttributeSets.closure(self.primary_key,self.FDs)
+            if attr_closure == self.attrs:
+                return True
+        return False
+
+    def _primary_key(self):
+        if self._isvalid_key():
+            return self.primary_key
+        elif not self.FDs:
+            return None
+        else:
+            return AttributeSets.primary_key(self.attrs, self.FDs)
+
+
+
+    def to_3nf(self):
+        """
+        NOTICE: current it show not unique value return, a relation can be divide in many way that valid 3NF
+        """
+
+        pk = self._primary_key()
+        if not pk:
+            echo("Missing primary for relation can not extract to 3nf")
+            return []
+        if not self.FDs:
+            echo("Can not decompose relation without fds")
+            return []
+        min_fd = FDSets.minimal_cover(self.FDs)
+        # SORT?
+        relation_fd  = []
+        relation_attribute_closure = []
+        for fd in list(min_fd):
+            # Can not use hash to table to mapping set
+            def add_fd_to_relation(fd: FD):
+                """
+                If contain FD1: A, B -> C, D and FD2: D -> B then 2 dependency will use to create on relation because FD1 have all attribute of FD2
+                """
+                i = 0
+                fd_attrs = fd.attrs()
+                for i  in range( len(relation_attribute_closure)):
+                    if fd_attrs.issubset(relation_attribute_closure[i]):
+                        relation_fd[i].append(fd)
+                        return
+                    elif fd_attrs.issuperset(relation_attribute_closure[i]):
+                        relation_fd[i].append(fd)
+                        relation_attribute_closure[i] = fd_attrs
+                        return
+
+                relation_attribute_closure.append(fd_attrs)
+                relation_fd.append([fd])
+                return
+            add_fd_to_relation(fd)
+
+
+        relations  = []
+        # Constructor relation from list of minimal cover fd
+        for i in range(len(relation_fd)):
+            attrs = relation_attribute_closure[i]
+            r  = Relation(attrs = attrs, FDs = FDSet(relation_fd[i]))
+            relations.append(r)
+
+
+        return relations
+
+
+
+
+
+
+
 
 
 
@@ -494,6 +641,27 @@ def test_find_primary_key():
     r = AttributeSets.primary_key(attrs,fds)
     if r != set(["A", "B", "D"]): print("ERROR find key")
 
+
+
+
+def test_decompose_to_3nf():
+    fds = FDSet([
+        FD.translate_semantic("P -> L, C, A"),
+        FD.translate_semantic("L, C -> A, P"),
+        FD.translate_semantic("A -> C"),
+    ])
+    attrs = fds.attrs()
+    test_lst_atrs = ["P", "L", "C", "A"]
+    for v in test_lst_atrs:
+        if v not in attrs: print("ERROR get attribute value from set of function dependency")
+
+    r = Relation(FDs = fds)
+    r.to_3nf()
+    # TODO: Test case to check if relations is valid
+
+
+
+
 class AttributeSets:
     """
     Helper method work around attribute in relation
@@ -521,6 +689,8 @@ class AttributeSets:
 
     @staticmethod
     def primary_key(attrs: set, FDs: FDSet) -> set:
+        if len(FDs) == 0:
+            return attrs
         key = attrs
         for attr in list(key):
             reduce_attrs = key - set([attr])
@@ -530,6 +700,9 @@ class AttributeSets:
     @staticmethod
     def is_superkey(test_for_key : set, all_attrs: set, FDs: FDSet) -> bool:
         return AttributeSets.closure(test_for_key, FDs) == all_attrs
+def attributes_repr(collection: Iterable):
+    return  f"({", ".join(collection)})"
+
 
 
 
@@ -548,6 +721,8 @@ def main():
     test_lhs_minimize()
     test_minimal_cover()
     test_find_primary_key()
+    test_decompose_to_3nf()
+
 
 if __name__ == "__main__":
     main()

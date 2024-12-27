@@ -9,8 +9,7 @@ A synthesis approach to design of relations given a set of FDs
 - [x] Minimal cover of FDs
 - [x] Find key from FDs
 - [x] Check collection of attribute is super key of relation 
-- [ ] Create relation with unique key 
 - [ ] Check current Normal Form of relation (in general normal form definition)
-- [ ] Decompose relation to 3NF from FDs
+- [x] Decompose relation to 3NF from FDs
 - [ ] Decompose relation to BCNF from FDs
 - [ ] Test Nonadditive Join Property after decomposition relation
