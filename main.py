@@ -67,6 +67,11 @@ class FD():
 
 class FDSet(set[FD]):
     def __init__(self, ir = None):
+        """
+        Input a iterator of FD or None
+        EX1:  a = FDSet() // Empty FDSet
+        EX2:  b = FDSet([fd1, fd2])
+        """
         super().__init__(self)
         if ir:
             for fd in ir:
@@ -84,9 +89,9 @@ class FDSet(set[FD]):
         # https://stackoverflow.com/questions/10810926/can-a-python-class-return-a-new-instance-of-its-class
         return type(self)(self.copy() - other.copy())
     def __add__(self, other) -> Self:
-
         a = self.copy().union(other.copy())
         return type(self)(list(a))
+
 
 
 
@@ -162,6 +167,11 @@ class FDSets:
                 break
         return inner_FDs
 
+    @staticmethod
+    def copy(fds: FDSet) -> FDSet:
+        a = fds.copy()
+        return FDSet(list(a))
+
 
     @staticmethod
     def canonical_extract(fd: FD) -> FDSet:
@@ -178,10 +188,9 @@ class FDSets:
     def canonical(FDs: FDSet) -> FDSet:
         s = FDSet()
         for fd in FDs:
-            s = s.union(FDSets.canonical_extract(fd))
+            for r in fd.rhs:
+                s.add(FD(fd.lhs, r))
         return s
-
-
 
 
     @staticmethod
@@ -198,17 +207,24 @@ class FDSets:
 
 
 
-        eliminated_lhs_fds = FDSets.minimal_lhs(canonical_FDs)
+        eliminated_lhs_fds = FDSets._minimal_lhs(canonical_FDs)
 
-        print(eliminated_lhs_fds)
+        # Remove redundance
+        for fd in list(eliminated_lhs_fds):
+            test_removed_fd_fds = eliminated_lhs_fds - FDSet([fd])
+            if FDSets.equivalent(eliminated_lhs_fds, test_removed_fd_fds ):
+                eliminated_lhs_fds = test_removed_fd_fds
 
-        # Infer FD from Armstrong rule => if the infer exist in
-        return FDSet()
+        return eliminated_lhs_fds
+
+
+
+
 
 
 
     @staticmethod
-    def minimal_lhs(FDs: FDSet):
+    def _minimal_lhs(FDs: FDSet):
 
 
         """
@@ -239,10 +255,9 @@ class FDSets:
 
                 if  len(fd_minus_attr.lhs) > 0 and  FDSets.equivalent(eliminated_lhs_fds, FDs):
                     eliminated_fds = eliminated_lhs_fds
-                    target_fd = eliminated_lhs_fds
+                    target_fd = fd_minus_attr
 
         return eliminated_fds
-
 
 
 
@@ -330,16 +345,6 @@ def test_fd_creation():
     if fd1 != fd3: print("ERROR creation from string")
     if fd2 != fd4: print("ERROR creation from string")
 
-def test_minimal_cover():
-
-    """
-    Input: B->A, D -> A, AB -> D
-    """
-    fd1 = FD.input_convert("B-> A")
-    fd2 = FD.input_convert("D-> A")
-    fd3 = FD.input_convert("A, B-> D")
-    # TODO
-    pass
 
 def test_ir2():
     """
@@ -416,7 +421,7 @@ def test_lhs_minimize():
     B -> D (Ok  B -> AB and B -> D so we know that B -> D)
     """
     fds = FDSet([FD.input_convert("B -> A"), FD.input_convert( "D -> A") , FD.input_convert("A, B -> D")])
-    rs = FDSets.minimal_lhs(fds)
+    rs = FDSets._minimal_lhs(fds)
     if rs.__contains__(FD.input_convert("A, B -> D")): print("ERROR eliminated left hand side")
     if not rs.__contains__(FD.input_convert("B -> D")): print("ERROR eliminated left hand side")
 
@@ -441,6 +446,21 @@ def test_fds_equivalent_2():
     # print(*sorted(FDSets.closure(FD1), key = lambda x: list(x.lhs)[0] ) , sep = "\n", end = "\n =============== \n")
     # print(*sorted(FDSets.closure(FD2), key = lambda x: list(x.lhs)[0] ) , sep = "\n", end = "\n =============== \n")
     if not FDSets.equivalent(FD1, FD2): print("ERROR compare to equivalent fds")
+
+
+
+def test_minimal_cover():
+    A = FDSet([
+        FD.input_convert("B -> A"),
+        FD.input_convert("D -> A"),
+        FD.input_convert("A, B -> D")
+    ])
+
+    A_min = FDSets.minimal_cover(A)
+    if len(A_min) != 2: print("ERROR: minimial cover")
+    if FD.input_convert("B -> D") not in A_min:  print("ERROR: minimial cover")
+    if FD.input_convert("D -> A") not in A_min:  print("ERROR: minimial cover")
+
 
 class AttributeSet(set[str]):
     def __init__(self, *args):
@@ -483,6 +503,7 @@ def main():
     test_fds_equivalent_2()
     test_canonical()
     test_lhs_minimize()
+    test_minimal_cover()
     pass
 
 
