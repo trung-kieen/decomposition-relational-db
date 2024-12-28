@@ -423,9 +423,10 @@ class Relation:
 
 
 
-    def to_3nf(self):
+    def to_3nf(self) -> Iterable[Self]:
         """
-        NOTICE: current it show not unique value return, a relation can be divide in many way that valid 3NF
+        NOTICE: current it show not unique value return in many run times
+        A relation can be divide in many way that valid 3NF base on hash value of set order change will matter
         """
 
         pk = self._primary_key()
@@ -472,6 +473,7 @@ class Relation:
             if attrs.issuperset(pk):
                 have_relation_cover_pk = True
 
+        # Add global key
         if not have_relation_cover_pk:
             r  = Relation(attrs = pk, FDs = FDSet())
             relations.append(r)
@@ -479,6 +481,17 @@ class Relation:
 
 
 
+    def _to_bcnf(self) -> list:
+        # Use recursive
+        if not self.FDs: return [self]
+
+        for fd in list(self.FDs):
+
+            # TODO
+
+            pass
+
+        return []
 
 
 
@@ -677,10 +690,31 @@ def test_decompose_to_3nf():
         if v not in attrs: print("ERROR get attribute value from set of function dependency")
 
     r = Relation(FDs = fds)
-    r.to_3nf()
-    # TODO: Test case to check if relations is valid
+    sub_relations = r.to_3nf()
+    test_relation_preservation(r, sub_relations)
 
 
+def test_relation_preservation(super_relation: Relation, sub_relations: Iterable[Relation]) -> None:
+
+    fds = super_relation.FDs
+    attrs = super_relation.attrs
+
+    if not fds and  not attrs:
+        print("ERROR when try to compare a empty relation after decomposition")
+        return
+
+
+    total_sub_attrs  = set()
+    total_sub_fds = FDSet()
+    for relation in sub_relations:
+        total_sub_fds  = total_sub_fds + relation.FDs
+        total_sub_attrs  = total_sub_attrs.union(relation.attrs)
+
+
+
+    # Check new relation is equivalent with before decompose
+    if not FDSets.equivalent(fds, total_sub_fds): print("ERROR 3nf relation not preservation")
+    if attrs != total_sub_attrs : print("ERROR property preservation")
 
 
 class AttributeSets:

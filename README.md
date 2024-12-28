@@ -13,3 +13,5 @@ A synthesis approach to design of relations given a set of FDs
 - [x] Decompose relation to 3NF from FDs
 - [ ] Decompose relation to BCNF from FDs
 - [ ] Test Nonadditive Join Property after decomposition relation
+- [ ] Menu interactive
+- [ ] Args parser integrate click
