@@ -125,7 +125,7 @@ class Armstrong:
     """
 
     @staticmethod
-    def apply_ir2(FDs: FDSet):
+    def apply_ir2(fds: FDSet):
         """
         IR2:
         Case 1
@@ -133,21 +133,21 @@ class Armstrong:
         AB -> CD <=> {AB -> BCD, AB -> ACD, AB -> ABCD} // all subset available for left hand side
         """
 
-        for fd in list(FDs):
+        for fd in list(fds):
             # Add all posible subset of left hand to right hand for additional rule
             subsets = subset(fd.lhs)
             for s in subsets:
                 right_side = fd.rhs.union(s)
-                FDs.add(FD(fd.lhs, right_side))
+                fds.add(FD(fd.lhs, right_side))
 
 
     @staticmethod
-    def apply_ir4(FDs:FDSet):
-        for fd in FDs:
+    def apply_ir4(fds:FDSet):
+        for fd in fds:
             subsets = subset(fd.lhs)
-            FDs.add(FD(fd.lhs, subsets))
+            fds.add(FD(fd.lhs, subsets))
     @staticmethod
-    def apply_ir3_ir5(FDs: FDSet):
+    def apply_ir3_ir5(fds: FDSet):
         """
         IR3: A -> B and B -> C then we have A -> C
 
@@ -163,15 +163,15 @@ class Armstrong:
         BC -> E
         (UPDATE this is IR5 but ok if add it to IR3?? TODO  refactor )
         """
-        for fd1 in list(FDs):
-            for fd2 in list(FDs):
+        for fd1 in list(fds):
+            for fd2 in list(fds):
                 if fd1 == fd2: continue
                 if fd1.rhs.issuperset(fd2.lhs):
                     tran_fd = FD(fd1.lhs, fd2.rhs)
-                    FDs.add(tran_fd)
+                    fds.add(tran_fd)
                 if fd1.lhs.issubset(fd2.lhs) and  fd1.lhs.issubset(fd2.lhs):
                     composite_fd = FD(fd1.lhs, fd2.rhs.union(fd1.rhs))
-                    FDs.add(composite_fd)
+                    fds.add(composite_fd)
 
 
 class FDSets:
@@ -180,20 +180,20 @@ class FDSets:
     FDSet is a set of immutable FD so it guarantee unique value in this collection.
     """
     @staticmethod
-    def closure(FDs) -> FDSet:
+    def closure(fds) -> FDSet:
         """
         Usage:
             Return closure set of functional dependency can inference for Armstrong ruleset
         """
-        inner_FDs = FDs.copy() # Avoid inplace change
+        inner_fds = fds.copy() # Avoid inplace change
         while True:
-            old_len  = len(inner_FDs)
-            Armstrong.apply_ir2(inner_FDs)
-            Armstrong.apply_ir3_ir5(inner_FDs)
-            no_more_inference_fd =  old_len == len(inner_FDs)
+            old_len  = len(inner_fds)
+            Armstrong.apply_ir2(inner_fds)
+            Armstrong.apply_ir3_ir5(inner_fds)
+            no_more_inference_fd =  old_len == len(inner_fds)
             if no_more_inference_fd:
                 break
-        return inner_FDs
+        return inner_fds
 
     @staticmethod
     def copy(fds: FDSet) -> FDSet:
@@ -213,9 +213,9 @@ class FDSets:
         return s
 
     @staticmethod
-    def canonical(FDs: FDSet) -> FDSet:
+    def canonical(fds: FDSet) -> FDSet:
         s = FDSet()
-        for fd in FDs:
+        for fd in fds:
             for r in fd.rhs:
                 s.add(FD(fd.lhs, r))
         return s
@@ -226,16 +226,16 @@ class FDSets:
         return a.iscover(b) and b.iscover(a)
 
     @staticmethod
-    def minimal_cover(FDs : FDSet) -> FDSet:
+    def minimal_cover(fds : FDSet) -> FDSet:
         """
         Algorithm 15.2
         """
 
-        canonical_FDs = FDSets.canonical(FDs)
+        canonical_fds = FDSets.canonical(fds)
 
 
 
-        eliminated_lhs_fds = FDSets._minimal_lhs(canonical_FDs)
+        eliminated_lhs_fds = FDSets._minimal_lhs(canonical_fds)
 
         # Remove redundance
         for fd in list(eliminated_lhs_fds):
@@ -277,7 +277,7 @@ class FDSets:
 
 
     @staticmethod
-    def _minimal_lhs(FDs: FDSet):
+    def _minimal_lhs(fds: FDSet):
 
 
         """
@@ -294,9 +294,9 @@ class FDSets:
             return f
 
 
-        eliminated_fds: FDSet =  FDs
+        eliminated_fds: FDSet =  fds
 
-        for fd in list(FDs):  # Set is unorder data structure so not allow remove item when iterator itself
+        for fd in list(fds):  # Set is unorder data structure so not allow remove item when iterator itself
             target_fd = fd # This FD may be remove attr inplace
 
             if len(fd.lhs) <=1: continue
@@ -306,7 +306,7 @@ class FDSets:
                 A = FDSet([fd_minus_attr])
                 eliminated_lhs_fds = (eliminated_fds  -    B)  +  A
 
-                if  len(fd_minus_attr.lhs) > 0 and  FDSets.equivalent(eliminated_lhs_fds, FDs):
+                if  len(fd_minus_attr.lhs) > 0 and  FDSets.equivalent(eliminated_lhs_fds, fds):
                     eliminated_fds = eliminated_lhs_fds
                     target_fd = fd_minus_attr
 
@@ -345,7 +345,7 @@ def backtrack(res  , superset ,  subset , index  = 0 ):
 
 class Relation:
     _name_counter = 0
-    def __init__(self,   attrs: set |None = None, FDs: FDSet | None = None,name: str = "", candidate_keys: Iterable[set]  = [] , primary_key: None | set= None  ) -> None:
+    def __init__(self,   attrs: set |None = None, fds: FDSet | None = None,name: str = "", candidate_keys: Iterable[set]  = [] , primary_key: None | set= None  ) -> None:
         """
         Example 1: Relation construct from FDSet will use all attribute exist in FDSet and primary_key define following previous data
         Relation(Fds = FDSet([
@@ -363,11 +363,11 @@ class Relation:
         self.primary_key = set(["A", "B", "C"])
         """
         self.name = name if name else self.__class__.generate_name()
-        self.FDs  = FDs
+        self.fds  = fds
         # one of the candidate key will be primary key
         self.candidate_keys = candidate_keys
-        if not FDs: return
-        self.attrs = attrs  if attrs else FDs.attrs()
+        if not fds: return
+        self.attrs = attrs  if attrs else fds.attrs()
         self.primary_key = primary_key if primary_key else None
         if (not self.primary_key):
             self.primary_key = self._primary_key()
@@ -382,7 +382,8 @@ class Relation:
         return self.__str__()
     @override
     def __str__(self):
-        relation_name = f"{self.name}({", ".join(self.attrs)})"
+        attrs_str=  ", ".join(self.attrs)
+        relation_name = self.name + "({0})".format(attrs_str)
 
         if self.primary_key:
             relation_name += "\n" + f"Primary Key: {attributes_repr(self.primary_key)}"
@@ -391,8 +392,8 @@ class Relation:
             candidate_name = "Unique: "
             candidate_name += ", ".join(attributes_repr(key) for key in self.candidate_keys)
             relation_name += "\n" + candidate_name
-        if self.FDs:
-            relation_name += "\n" + self.FDs.__str__()
+        if self.fds:
+            relation_name += "\n" + self.fds.__str__()
         return relation_name
     @staticmethod
     def translate_semantic(raw: str):
@@ -407,8 +408,8 @@ class Relation:
         return Relation(attrs = attrs, name=name)
 
     def _isvalid_key(self):
-        if self.primary_key and self.FDs:
-            attr_closure = AttributeSets.closure(self.primary_key,self.FDs)
+        if self.primary_key and self.fds:
+            attr_closure = AttributeSets.closure(self.primary_key,self.fds)
             if attr_closure == self.attrs:
                 return True
         return False
@@ -416,10 +417,10 @@ class Relation:
     def _primary_key(self):
         if self._isvalid_key():
             return self.primary_key
-        elif not self.FDs:
+        elif not self.fds:
             return None
         else:
-            return AttributeSets.primary_key(self.attrs, self.FDs)
+            return AttributeSets.primary_key(self.attrs, self.fds)
 
 
 
@@ -433,10 +434,10 @@ class Relation:
         if not pk:
             echo("Missing primary for relation can not extract to 3nf")
             return []
-        if not self.FDs:
+        if not self.fds:
             echo("Can not decompose relation without fds")
             return []
-        min_fd = FDSets.minimal_cover(self.FDs)
+        min_fd = FDSets.minimal_cover(self.fds)
         # SORT?
         relation_fd  = []
         relation_attribute_closure = []
@@ -468,14 +469,14 @@ class Relation:
         # Constructor relation from list of minimal cover fd
         for i in range(len(relation_fd)):
             attrs = relation_attribute_closure[i]
-            r  = Relation(attrs = attrs, FDs = FDSet(relation_fd[i]))
+            r  = Relation(attrs = attrs, fds = FDSet(relation_fd[i]))
             relations.append(r)
             if attrs.issuperset(pk):
                 have_relation_cover_pk = True
 
         # Add global key
         if not have_relation_cover_pk:
-            r  = Relation(attrs = pk, FDs = FDSet())
+            r  = Relation(attrs = pk, fds = FDSet())
             relations.append(r)
         return relations
 
@@ -489,7 +490,7 @@ class Relation:
         {C, L} -> {A, P} valid because C, L determine relation
         """
         lhs = fd.lhs
-        left_fd_attrs_closure = AttributeSets.closure(lhs, self.FDs)
+        left_fd_attrs_closure = AttributeSets.closure(lhs, self.fds)
         return left_fd_attrs_closure != self.attrs
 
 
@@ -497,26 +498,26 @@ class Relation:
 
 
         # Not require
-        # self.FDs = FDSets.minimal_cover(self.FDs)
+        # self.fds = FDSets.minimal_cover(self.fds)
 
 
         # Use recursive
-        if not self.FDs: return [self]
+        if not self.fds: return [self]
         stack : Iterable= [self]
         results = []
 
         while stack:
             relation = stack.pop()
-            if not relation.FDs:
+            if not relation.fds:
                 continue
-            for fd in relation.FDs:
+            for fd in relation.fds:
                 if relation.violent_bcnf(fd):
                     # Create relation XA form fd X -> A
                     sub_fd =  FDSet([fd])
-                    origin_fd = relation.FDs - sub_fd
+                    origin_fd = relation.fds - sub_fd
 
-                    a = Relation(FDs  = sub_fd )
-                    b = Relation(FDs = origin_fd)
+                    a = Relation(fds  = sub_fd )
+                    b = Relation(fds = origin_fd)
                     stack.append(a)
                     stack.append(b)
 
@@ -605,15 +606,15 @@ def test_ir2():
     fd1 = FD.translate_semantic("B-> A")
     fd2 = FD.translate_semantic("D-> A")
     fd3 = FD.translate_semantic("A, B-> D")
-    FDs = FDSet()
-    FDs.add(fd1)
-    FDs.add(fd2)
-    FDs.add(fd3)
-    Armstrong.apply_ir2(FDs)
-    # print(FDs)
-    if FD.translate_semantic("B -> A, B") not in FDs:
+    fds = FDSet()
+    fds.add(fd1)
+    fds.add(fd2)
+    fds.add(fd3)
+    Armstrong.apply_ir2(fds)
+    # print(fds)
+    if FD.translate_semantic("B -> A, B") not in fds:
         print("ERROR IR2")
-    if FD.translate_semantic("A, B -> A, B, D") not in FDs:
+    if FD.translate_semantic("A, B -> A, B, D") not in fds:
         print("ERROR IR2")
 def test_ir3_ir5():
     """
@@ -729,7 +730,7 @@ def test_decompose_to_3nf():
     for v in test_lst_atrs:
         if v not in attrs: print("ERROR get attribute value from set of function dependency")
 
-    r = Relation(FDs = fds)
+    r = Relation(fds = fds)
     sub_relations = r.to_3nf()
     test_relation_preservation(r, sub_relations)
 
@@ -742,18 +743,16 @@ def test_decompose_to_bcnf():
         FD.translate_semantic("L, C -> A, P"),
         FD.translate_semantic("A -> C"),
     ])
-    r = Relation(FDs = fds)
+    r = Relation(fds = fds)
 
     a = r._to_bcnf()
     test_relation_preservation(r, a, False)
-    for i in a:
-        print( i )
 
 
 
 def test_relation_preservation(super_relation: Relation, sub_relations: Iterable[Relation], check_fds_preservation = True) -> None:
 
-    fds = super_relation.FDs
+    fds = super_relation.fds
     attrs = super_relation.attrs
 
     if not fds and  not attrs:
@@ -764,7 +763,7 @@ def test_relation_preservation(super_relation: Relation, sub_relations: Iterable
     total_sub_attrs  = set()
     total_sub_fds = FDSet()
     for relation in sub_relations:
-        total_sub_fds  = total_sub_fds + relation.FDs
+        total_sub_fds  = total_sub_fds + relation.fds
         total_sub_attrs  = total_sub_attrs.union(relation.attrs)
 
 
@@ -782,7 +781,7 @@ class AttributeSets:
 
 
     @staticmethod
-    def closure(attrs: set, FDs: FDSet) -> set:
+    def closure(attrs: set, fds: FDSet) -> set:
         """
         Use algorithm 15.1
         Input: single attr of list, set attr
@@ -791,7 +790,7 @@ class AttributeSets:
         x_closure   = attrs.copy()
         while True:
             old_len = len(x_closure)
-            for fd in FDs:
+            for fd in fds:
                 if x_closure.issuperset(fd.lhs):
                     x_closure = x_closure.union(fd.rhs)
             apply_fds_not_add_new_property: bool = old_len == len(x_closure)
@@ -801,20 +800,20 @@ class AttributeSets:
 
 
     @staticmethod
-    def primary_key(attrs: set, FDs: FDSet) -> set:
-        if len(FDs) == 0:
+    def primary_key(attrs: set, fds: FDSet) -> set:
+        if len(fds) == 0:
             return attrs
         key = attrs
         for attr in list(key):
             reduce_attrs = key - set([attr])
-            if AttributeSets.is_superkey(reduce_attrs, attrs, FDs):
+            if AttributeSets.is_superkey(reduce_attrs, attrs, fds):
                 key = reduce_attrs
         return key
     @staticmethod
-    def is_superkey(test_for_key : set, all_attrs: set, FDs: FDSet) -> bool:
-        return AttributeSets.closure(test_for_key, FDs) == all_attrs
+    def is_superkey(test_for_key : set, all_attrs: set, fds: FDSet) -> bool:
+        return AttributeSets.closure(test_for_key, fds) == all_attrs
 def attributes_repr(collection: Iterable):
-    return  f"({", ".join(collection)})"
+    return  "({0})".format({", ".join(collection)})
 
 
 
