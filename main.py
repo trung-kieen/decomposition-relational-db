@@ -480,18 +480,58 @@ class Relation:
         return relations
 
 
+    def violent_bcnf(self, fd: FD) -> bool:
+        """
+        A fd is not violent bncf when left hand side attribute determine all attribute in relation
+        Example 1:
+        R7(A, L, P, C)
+        {P} -> {A, C, L} valid because P determine relation
+        {C, L} -> {A, P} valid because C, L determine relation
+        """
+        lhs = fd.lhs
+        left_fd_attrs_closure = AttributeSets.closure(lhs, self.FDs)
+        return left_fd_attrs_closure != self.attrs
+
 
     def _to_bcnf(self) -> list:
+
+
+        # Not require
+        # self.FDs = FDSets.minimal_cover(self.FDs)
+
+
         # Use recursive
         if not self.FDs: return [self]
+        stack : Iterable= [self]
+        results = []
 
-        for fd in list(self.FDs):
+        while stack:
+            relation = stack.pop()
+            if not relation.FDs:
+                continue
+            for fd in relation.FDs:
+                if relation.violent_bcnf(fd):
+                    # Create relation XA form fd X -> A
+                    sub_fd =  FDSet([fd])
+                    origin_fd = relation.FDs - sub_fd
 
-            # TODO
+                    a = Relation(FDs  = sub_fd )
+                    b = Relation(FDs = origin_fd)
+                    stack.append(a)
+                    stack.append(b)
 
-            pass
+                    # Recursive decompose to bncf base on stack
+                    break
 
-        return []
+
+            else:
+                # No violent fd found => BCNF relation
+                results.append(relation)
+
+
+
+
+        return results
 
 
 
@@ -694,7 +734,24 @@ def test_decompose_to_3nf():
     test_relation_preservation(r, sub_relations)
 
 
-def test_relation_preservation(super_relation: Relation, sub_relations: Iterable[Relation]) -> None:
+
+def test_decompose_to_bcnf():
+    # Will not preservation dependency
+    fds = FDSet([
+        FD.translate_semantic("P -> L, C, A"),
+        FD.translate_semantic("L, C -> A, P"),
+        FD.translate_semantic("A -> C"),
+    ])
+    r = Relation(FDs = fds)
+
+    a = r._to_bcnf()
+    test_relation_preservation(r, a, False)
+    for i in a:
+        print( i )
+
+
+
+def test_relation_preservation(super_relation: Relation, sub_relations: Iterable[Relation], check_fds_preservation = True) -> None:
 
     fds = super_relation.FDs
     attrs = super_relation.attrs
@@ -713,7 +770,8 @@ def test_relation_preservation(super_relation: Relation, sub_relations: Iterable
 
 
     # Check new relation is equivalent with before decompose
-    if not FDSets.equivalent(fds, total_sub_fds): print("ERROR 3nf relation not preservation")
+    if check_fds_preservation:
+        if not FDSets.equivalent(fds, total_sub_fds): print("ERROR 3nf relation not preservation")
     if attrs != total_sub_attrs : print("ERROR property preservation")
 
 
@@ -777,6 +835,7 @@ def main():
     test_minimal_cover()
     test_find_primary_key()
     test_decompose_to_3nf()
+    test_decompose_to_bcnf()
 
 
 if __name__ == "__main__":
