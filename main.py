@@ -1,19 +1,13 @@
 # Author: Nguyen Khac Trung Kien @trung-kieen
 
+import inspect
+from os import system, name
 from copy import deepcopy
-from typing import Iterable, Self, overload, override
+from typing import Iterable, Self, override
 
 
-def scan(*args):
-    input(args)
 
 
-def echo(
-    *args,
-    **kwargs,
-):
-    # TODO: logger
-    print(args, kwargs)
 
 
 # Use to make FD as immutable => able to add in set
@@ -33,7 +27,6 @@ def immutable_meta(name, bases, dct):
 
 class FD:
     __metaclass__ = immutable_meta
-    _scan_name = "Functional Dependency"
 
     def __init__(self, lhs: Iterable, rhs: Iterable) -> None:
         """
@@ -47,7 +40,7 @@ class FD:
 
     @classmethod
     def scan(cls):
-        a = scan(f"Enter {cls._scan_name }: ")
+        a = ui.scan(f"Enter FD: ")
         return cls.translate_semantic(a)
 
     @override
@@ -230,7 +223,7 @@ class FDSets:
         return s
 
     @staticmethod
-    def equivalent(a: FDSet, b: FDSet):
+    def equivalent(a: FDSet, b: FDSet) -> bool:
         return a.iscover(b) and b.iscover(a)
 
     @staticmethod
@@ -358,12 +351,17 @@ class Relation:
         self.fds = fds
         # one of the candidate key will be primary key
         self.candidate_keys = candidate_keys
-        if not fds:
-            return
-        self.attrs = attrs if attrs else fds.attrs()
+
+
+        if attrs: self.attrs = attrs
+        elif fds: self.attrs = fds.attrs()
+        else: self.attrs = set()
+
+
+
         self.primary_key = primary_key if primary_key else None
         if not self.primary_key:
-            self.primary_key = self._primary_key()
+            self.primary_key = self.get_primary_key()
 
     @classmethod
     def generate_name(cls):
@@ -405,13 +403,15 @@ class Relation:
         return Relation(attrs=attrs, name=name)
 
     def _isvalid_key(self):
+        if not getattr(self, "primary_key", ""):
+            return False
         if self.primary_key and self.fds:
             attr_closure = AttributeSets.closure(self.primary_key, self.fds)
             if attr_closure == self.attrs:
                 return True
         return False
 
-    def _primary_key(self):
+    def get_primary_key(self):
         if self._isvalid_key():
             return self.primary_key
         elif not self.fds:
@@ -425,12 +425,12 @@ class Relation:
         A relation can be divide in many way that valid 3NF base on hash value of set order change will matter
         """
 
-        pk = self._primary_key()
+        pk = self.get_primary_key()
         if not pk:
-            echo("Missing primary for relation can not extract to 3nf")
+            ui.echo("Missing primary for relation can not extract to 3nf")
             return []
         if not self.fds:
-            echo("Can not decompose relation without fds")
+            UserInteraction.echo("Can not decompose relation without fds")
             return []
         min_fd = FDSets.minimal_cover(self.fds)
         # SORT?
@@ -487,7 +487,7 @@ class Relation:
         left_fd_attrs_closure = AttributeSets.closure(lhs, self.fds)
         return left_fd_attrs_closure != self.attrs
 
-    def _to_bcnf(self) -> list:
+    def to_bcnf(self) -> list:
 
         # Not require
         # self.fds = FDSets.minimal_cover(self.fds)
@@ -780,7 +780,7 @@ def test_decompose_to_bcnf():
     )
     r = Relation(fds=fds)
 
-    a = r._to_bcnf()
+    a = r.to_bcnf()
     test_relation_preservation(r, a, False)
 
 
@@ -846,12 +846,178 @@ class AttributeSets:
         return key
 
     @staticmethod
-    def is_superkey(test_for_key: set, all_attrs: set, fds: FDSet) -> bool:
-        return AttributeSets.closure(test_for_key, fds) == all_attrs
+    def is_superkey(attrs_check: set, all_attrs: set, fds: FDSet) -> bool:
+        return AttributeSets.closure(attrs_check, fds) == all_attrs
 
 
 def attributes_repr(collection: Iterable):
     return "({0})".format({", ".join(collection)})
+
+
+
+
+
+
+class UserInteraction:
+    @staticmethod
+    def scan(prompt):
+        while True:
+            try:
+                ans = input(prompt)
+                return ans
+            except Exception as ex:
+                print("Ops! Something went wrong")
+    @staticmethod
+    def interact_input( inline_prompt):
+        input(inline_prompt + "\n>")
+
+    @staticmethod
+    def menu_get_option(options: list[str]):
+        """
+        Return index select from menu
+        """
+
+        for idx, opt in enumerate(options):
+            s = "[{0}] {1}".format(idx, opt.title())
+            UserInteraction.echo(s)
+        while True:
+            ans = UserInteraction.scan("Choice: ")
+            if ans.isdigit() and int(ans) in range(len(options)):
+                return int(ans)
+
+
+
+    @staticmethod
+    def echo(
+        *args,
+        **kwargs,
+    ):
+        UserInteraction.clear()
+        print(args, kwargs)
+
+    @staticmethod
+    def input_fd():
+        return FD.translate_semantic("A -> B")
+
+    @staticmethod
+    def input_fds():
+        return FDSet([FD.translate_semantic("C -> B")])
+
+    @staticmethod
+    def input_relation():
+        return Relation.translate_semantic("R(A, B, C, D)")
+
+    @staticmethod
+    def input_attrs():
+        return set(list("ABCD"))
+
+
+    @staticmethod
+    def clear():
+
+        # for windows
+        if name == 'nt':
+            _ = system('cls')
+
+        else:
+            _ = system('clear')
+
+def inject_args(f):
+    def wrapper(*args, **kwargs):
+        bound_args = inspect.signature(f).bind(*args, **kwargs)
+        bound_args.apply_defaults()
+        passing_args = dict(bound_args.arguments)
+
+
+        ui = UserInteraction
+        mapping_input = {
+            "attrs": ui.input_attrs,
+            "fd": ui.input_fd,
+            "fds": ui.input_fds,
+            "relation": ui.input_relation,
+            "attrs_check": ui.input_attrs,
+            "all_attrs": ui.input_attrs,
+        }
+        for arg_name in passing_args:
+            if arg_name in mapping_input:
+                kwargs[arg_name] = mapping_input[arg_name]()
+        result = f(*args, **kwargs)
+        print(result)
+        return result
+
+    return wrapper
+
+
+class RelationModel:
+    """
+    Mapping all tool in class to display in menu
+    Use docstring of function as purpose of method in menu
+    Any parameter will get input from user via injection so leave them None as default
+    """
+
+    @inject_args
+    @staticmethod
+    def attribute_closure(attrs: set | None = None, fds: FDSet | None = None) -> set:
+        return AttributeSets.closure(attrs, fds)
+    @inject_args
+    @staticmethod
+    def apply_ir2(fds: FDSet | None = None) -> None:
+        Armstrong.apply_ir2(fds)
+    @inject_args
+    @staticmethod
+    def apply_ir4(fds: FDSet | None = None) -> None:
+        Armstrong.apply_ir4(fds)
+    @inject_args
+    @staticmethod
+    def apply_ir3_ir5(fds: FDSet | None = None) -> None:
+        Armstrong.apply_ir3_ir5(fds)
+    @inject_args
+    @staticmethod
+    def is_fds_equivalen(a: FDSet | None = None, b: FDSet | None = None) -> bool:
+        return FDSets.equivalent(a, b)
+
+    @inject_args
+    @staticmethod
+    def fds_closure(fds: FDSet | None = None) -> FDSet:
+        return FDSets.closure(fds)
+
+    @inject_args
+    @staticmethod
+    def find_key(attrs: set | None = None, fds: FDSet | None = None) -> set:
+        return AttributeSets.primary_key(attrs, fds)
+    @inject_args
+    @staticmethod
+    def find_key_from_relation( relation: Relation | None = None ) -> set | None:
+        return relation.get_primary_key()
+    @inject_args
+    @staticmethod
+    def is_superkey( attrs_check: set | None = None , all_attrs: set | None = None, fds: FDSet | None = None ) -> bool:
+        return AttributeSets.is_superkey(attrs_check, all_attrs , fds)
+
+    @inject_args
+    @staticmethod
+    def decompose_to_3nf( relation: Relation | None = None) -> Iterable[Relation]:
+        return relation.to_3nf()
+
+    @inject_args
+    @staticmethod
+    def decompose_to_bcnf( relation: Relation | None = None) -> Iterable[Relation]:
+        return relation.to_bcnf()
+
+
+
+
+
+def get_methods_name(cls ):
+    method_list = [func for func in dir(cls) if callable(getattr(cls, func)) and not func.startswith("__")]
+    return method_list
+
+
+def get_func_callable(cls, func_name):
+    return getattr(cls, func_name)
+
+
+
 
 
 def main():
@@ -871,6 +1037,10 @@ def main():
     test_find_primary_key()
     test_decompose_to_3nf()
     test_decompose_to_bcnf()
+
+
+
+
 
 
 if __name__ == "__main__":
