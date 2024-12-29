@@ -37,7 +37,7 @@ class FD:
 
     @classmethod
     def scan(cls):
-        a = UserInteraction.scan(f"Enter FD: ")
+        a = UI.scan(f"Enter FD: ")
         return cls.translate_semantic(a)
 
     @override
@@ -140,9 +140,10 @@ class Armstrong:
 
     @staticmethod
     def apply_ir4(fds: FDSet):
-        for fd in fds:
-            subsets = subset(fd.lhs)
-            fds.add(FD(fd.lhs, subsets))
+        for fd in list(fds):
+            for sub in fd.rhs:
+                fds.add(FD(fd.lhs, [sub]))
+
 
     @staticmethod
     def apply_ir3_ir5(fds: FDSet):
@@ -424,10 +425,10 @@ class Relation:
 
         pk = self.get_primary_key()
         if not pk:
-            UserInteraction.echo("Missing primary for relation can not extract to 3nf")
+            UI.echo("Missing primary for relation can not extract to 3nf")
             return []
         if not self.fds:
-            UserInteraction.echo("Can not decompose relation without fds")
+            UI.echo("Can not decompose relation without fds")
             return []
         min_fd = FDSets.minimal_cover(self.fds)
         # SORT?
@@ -851,7 +852,7 @@ def attributes_repr(collection: Iterable):
     return "({0})".format({", ".join(collection)})
 
 
-class UserInteraction:
+class UI:
     @staticmethod
     def scan(prompt):
         while True:
@@ -860,6 +861,10 @@ class UserInteraction:
                 return ans
             except Exception as ex:
                 print("Ops! Something went wrong")
+
+    @staticmethod
+    def show_banner():
+        UI.echo("_" * 100)
 
     @staticmethod
     def interact_input(inline_prompt) -> str:
@@ -872,10 +877,10 @@ class UserInteraction:
         """
 
         for idx, opt in enumerate(options):
-            s = f"[{idx}]" + f" {opt.title()}"
-            UserInteraction.echo(s)
+            s = f"[{idx}]" + f" {opt}"
+            UI.echo(s)
         while True:
-            ans = UserInteraction.interact_input(f"Select your choice [{0}-{len(options) - 1}]?")
+            ans = UI.interact_input(f"Select your choice [{0}-{len(options) - 1}]?")
             if ans.isdigit() and int(ans) in range(len(options)):
                 return int(ans)
 
@@ -916,7 +921,7 @@ class UserInteraction:
             _ = system("clear")
     @staticmethod
     def ask(questions: str) -> bool:
-        ans = UserInteraction.interact_input(questions.strip().title() + " [Y/n]?")
+        ans = UI.interact_input(questions.strip().title() + " [Y/n]?")
         yes = ["y", "yes" , '']
         if ans.strip() in yes:
             return True
@@ -939,10 +944,10 @@ def inject_args(f):
         params = func_prototype.parameters
 
         datatype_to_input_method = {
-            set: UserInteraction.input_attrs,
-            FD: UserInteraction.input_fd,
-            FDSet: UserInteraction.input_fds,
-            Relation: UserInteraction.input_relation,
+            set: UI.input_attrs,
+            FD: UI.input_fd,
+            FDSet: UI.input_fds,
+            Relation: UI.input_relation,
         }
 
         for arg_name in params:
@@ -951,8 +956,15 @@ def inject_args(f):
                 if match_type_or_contain(datatype, annotate_class):
                     kwargs[arg_name] = datatype_to_input_method[datatype]()
 
+        UI.echo("\nProcessing ...\n")
         result = f(*args, **kwargs)
-        UserInteraction.echo(result)
+        if isinstance(result, list):
+            for i in result:
+                UI.echo(result)
+        elif not result:
+            UI.echo("No such result")
+        else:
+            UI.echo(result)
         return result
 
     return wrapper
@@ -1030,7 +1042,8 @@ class RelationModel:
         """
         Find key from relation
         """
-        return relation.get_primary_key()
+        key = relation.get_primary_key()
+        return  key if key else "Could not found the key of relation"
 
     @inject_args
     @staticmethod
@@ -1066,6 +1079,7 @@ class RelationModel:
         """
         Exit
         """
+        exit()
         return
 
 
@@ -1119,14 +1133,18 @@ def main():
 
 
     while True:
-        UserInteraction.clear()
-        selected_idx = UserInteraction.menu_get_option(menu_opts)
+        UI.clear()
+        selected_idx = UI.menu_get_option(menu_opts)
         select_opt  = methods_px[selected_idx]
         method = select_opt.ref
-        UserInteraction.clear()
-        UserInteraction.echo(select_opt.doc)
+        UI.clear()
+        UI.echo(select_opt.doc)
+        UI.show_banner()
         method()
-        UserInteraction.ask("Back to menu")
+
+
+        UI.show_banner()
+        if not UI.ask("Back to menu"): break
 
 
 
