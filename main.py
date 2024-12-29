@@ -4,6 +4,7 @@ import inspect
 from copy import deepcopy
 from os import name, system
 from typing import Any, Iterable, Self, Union, override
+from functools import wraps
 
 
 # Use to make FD as immutable => able to add in set
@@ -36,7 +37,7 @@ class FD:
 
     @classmethod
     def scan(cls):
-        a = ui.scan(f"Enter FD: ")
+        a = UserInteraction.scan(f"Enter FD: ")
         return cls.translate_semantic(a)
 
     @override
@@ -423,7 +424,7 @@ class Relation:
 
         pk = self.get_primary_key()
         if not pk:
-            ui.echo("Missing primary for relation can not extract to 3nf")
+            UserInteraction.echo("Missing primary for relation can not extract to 3nf")
             return []
         if not self.fds:
             UserInteraction.echo("Can not decompose relation without fds")
@@ -861,8 +862,8 @@ class UserInteraction:
                 print("Ops! Something went wrong")
 
     @staticmethod
-    def interact_input(inline_prompt):
-        input(inline_prompt + "\n>")
+    def interact_input(inline_prompt) -> str:
+        return input(inline_prompt + "\n>")
 
     @staticmethod
     def menu_get_option(options: list[str]):
@@ -871,20 +872,18 @@ class UserInteraction:
         """
 
         for idx, opt in enumerate(options):
-            s = "[{0}] {1}".format(idx, opt.title())
+            s = f"[{idx}]" + f" {opt.title()}"
             UserInteraction.echo(s)
         while True:
-            ans = UserInteraction.scan("Choice: ")
+            ans = UserInteraction.interact_input(f"Select your choice [{0}-{len(options) - 1}]?")
             if ans.isdigit() and int(ans) in range(len(options)):
                 return int(ans)
 
     @staticmethod
     def echo(
-        *args,
-        **kwargs,
+        args,
     ):
-        UserInteraction.clear()
-        print(args, kwargs)
+        print(args)
 
     @staticmethod
     def input_fd():
@@ -915,6 +914,14 @@ class UserInteraction:
 
         else:
             _ = system("clear")
+    @staticmethod
+    def ask(questions: str) -> bool:
+        ans = UserInteraction.interact_input(questions.strip().title() + " [Y/n]?")
+        yes = ["y", "yes" , '']
+        if ans.strip() in yes:
+            return True
+        return False
+
 
 
 def inject_args(f):
@@ -923,17 +930,19 @@ def inject_args(f):
            return A == B or A in B.__args__
         except Exception as ex:
             return False
+    # Preservation  metadata docstring
+    @wraps(f)
     def wrapper(*args, **kwargs):
         func_prototype = inspect.signature(f)
+        # func_prototype.bind(args, kwargs)
 
         params = func_prototype.parameters
 
-        ui = UserInteraction
         datatype_to_input_method = {
-            set: ui.input_attrs,
-            FD: ui.input_fd,
-            FDSet: ui.input_fds,
-            Relation: ui.input_relation,
+            set: UserInteraction.input_attrs,
+            FD: UserInteraction.input_fd,
+            FDSet: UserInteraction.input_fds,
+            Relation: UserInteraction.input_relation,
         }
 
         for arg_name in params:
@@ -941,19 +950,9 @@ def inject_args(f):
             for datatype in datatype_to_input_method:
                 if match_type_or_contain(datatype, annotate_class):
                     kwargs[arg_name] = datatype_to_input_method[datatype]()
-            # if match_type_or_contain(set, annotate_class):
-            #     kwargs[arg_name] = UserInteraction.input_attrs()
-            # if match_type_or_contain(FD, annotate_class):
-            #     kwargs[arg_name] = UserInteraction.input_fd()
-
-            # if match_type_or_contain(FDSet, annotate_class):
-            #     kwargs[arg_name] = UserInteraction.input_fds()
-            # if match_type_or_contain(Relation, annotate_class):
-            #     kwargs[arg_name] = UserInteraction.input_relation()
-
 
         result = f(*args, **kwargs)
-        print(result)
+        UserInteraction.echo(result)
         return result
 
     return wrapper
@@ -969,41 +968,68 @@ class RelationModel:
     @inject_args
     @staticmethod
     def attribute_closure(attrs: set | None = None, fds: FDSet | None = None) -> set:
+        """
+        Attribute closure
+        """
         return AttributeSets.closure(attrs, fds)
 
     @inject_args
     @staticmethod
     def apply_ir2(fds: FDSet | None = None) -> None:
+        """
+        Apply Armstrong IR2
+        """
         Armstrong.apply_ir2(fds)
+        return fds
 
     @inject_args
     @staticmethod
     def apply_ir4(fds: FDSet | None = None) -> None:
+        """
+        Apply Armstrong IR4
+        """
         Armstrong.apply_ir4(fds)
+        return fds
 
     @inject_args
     @staticmethod
     def apply_ir3_ir5(fds: FDSet | None = None) -> None:
+        """
+        Apply Armstrong IR3 and IR5
+        """
         Armstrong.apply_ir3_ir5(fds)
+        return fds
 
     @inject_args
     @staticmethod
-    def is_fds_equivalen(a: FDSet | None = None, b: FDSet | None = None) -> bool:
-        return FDSets.equivalent(a, b)
+    def is_fds_equivalen(a: FDSet | None = None, b: FDSet | None = None):
+        """
+        Compare two set of function dependency is equivalent
+        """
+        return "Yes they are equivalent" if FDSets.equivalent(a, b) else "No they are not"
 
     @inject_args
     @staticmethod
     def fds_closure(fds: FDSet | None = None) -> FDSet:
+        """
+        Closure of set functional dependency
+        """
         return FDSets.closure(fds)
 
     @inject_args
     @staticmethod
     def find_key(attrs: set | None = None, fds: FDSet | None = None) -> set:
+        """
+        Find key from set of attribute and set of functional dependency
+        """
         return AttributeSets.primary_key(attrs, fds)
 
     @inject_args
     @staticmethod
     def find_key_from_relation(relation: Relation | None = None) -> set | None:
+        """
+        Find key from relation
+        """
         return relation.get_primary_key()
 
     @inject_args
@@ -1013,30 +1039,61 @@ class RelationModel:
         all_attrs: set | None = None,
         fds: FDSet | None = None,
     ) -> bool:
+        """
+        Check set of attribute is super key base on all available attribute and set of functional dependency
+        """
         return AttributeSets.is_superkey(attrs_check, all_attrs, fds)
 
     @inject_args
     @staticmethod
     def decompose_to_3nf(relation: Relation | None = None) -> Iterable[Relation]:
+        """
+        Decompose relation to 3NF form
+        """
         return relation.to_3nf()
 
     @inject_args
     @staticmethod
     def decompose_to_bcnf(relation: Relation | None = None) -> Iterable[Relation]:
+        """
+        Decompose relation to BCNF form
+        """
         return relation.to_bcnf()
 
+    @inject_args
+    @staticmethod
+    def close():
+        """
+        Exit
+        """
+        return
 
-def get_methods_name(cls):
-    method_list = [
-        func
-        for func in dir(cls)
-        if callable(getattr(cls, func)) and not func.startswith("__")
-    ]
-    return method_list
+
+class ClassMethodProxy:
+    def __init__(self, name,  ref, doc ="") -> None:
+        self.name = name
+        self.doc = doc
+        self.ref = ref
+
+def get_methods_proxy(cls):
+
+    rs = []
+    for func in dir(cls):
+        if callable(getattr(cls, func)) and not func.startswith("__"):
+            name = func
+            call_ref = getattr(cls, func)
+            doc = call_ref.__doc__.strip()
+            rs.append(
+                ClassMethodProxy(name, call_ref, doc )
+            )
+
+    # Hardcode exit method to the end
+    for idx in range(len(rs)):
+        if rs[idx].name.lower() == "close":
+            rs[idx] , rs[len(rs) - 1] = rs[len(rs) - 1], rs[idx]
+    return rs
 
 
-def get_func_callable(cls, func_name):
-    return getattr(cls, func_name)
 
 
 def main():
@@ -1057,9 +1114,22 @@ def main():
     test_decompose_to_3nf()
     test_decompose_to_bcnf()
 
+    methods_px= get_methods_proxy(RelationModel)
+    menu_opts = [f.doc for f in methods_px]
+
+
+    while True:
+        UserInteraction.clear()
+        selected_idx = UserInteraction.menu_get_option(menu_opts)
+        select_opt  = methods_px[selected_idx]
+        method = select_opt.ref
+        UserInteraction.clear()
+        UserInteraction.echo(select_opt.doc)
+        method()
+        UserInteraction.ask("Back to menu")
+
+
+
 
 if __name__ == "__main__":
     main()
-    RelationModel.find_key_from_relation()
-    RelationModel.decompose_to_bcnf()
-    RelationModel.is_fds_equivalen()
