@@ -3,7 +3,7 @@
 import inspect
 from copy import deepcopy
 from os import name, system
-from typing import Iterable, Self, override
+from typing import Any, Iterable, Self, Union, override
 
 
 # Use to make FD as immutable => able to add in set
@@ -888,18 +888,22 @@ class UserInteraction:
 
     @staticmethod
     def input_fd():
+        print("input fd")
         return FD.translate_semantic("A -> B")
 
     @staticmethod
     def input_fds():
+        print("input fds")
         return FDSet([FD.translate_semantic("C -> B")])
 
     @staticmethod
     def input_relation():
+        print("input relation")
         return Relation.translate_semantic("R(A, B, C, D)")
 
     @staticmethod
     def input_attrs():
+        print("input attrs")
         return set(list("ABCD"))
 
     @staticmethod
@@ -914,23 +918,40 @@ class UserInteraction:
 
 
 def inject_args(f):
+    def match_type_or_contain(A: type, B: type | Union[Any, Any]):
+        try:
+           return A == B or A in B.__args__
+        except Exception as ex:
+            return False
     def wrapper(*args, **kwargs):
-        bound_args = inspect.signature(f).bind(*args, **kwargs)
-        bound_args.apply_defaults()
-        passing_args = dict(bound_args.arguments)
+        func_prototype = inspect.signature(f)
+
+        params = func_prototype.parameters
 
         ui = UserInteraction
-        mapping_input = {
-            "attrs": ui.input_attrs,
-            "fd": ui.input_fd,
-            "fds": ui.input_fds,
-            "relation": ui.input_relation,
-            "attrs_check": ui.input_attrs,
-            "all_attrs": ui.input_attrs,
+        datatype_to_input_method = {
+            set: ui.input_attrs,
+            FD: ui.input_fd,
+            FDSet: ui.input_fds,
+            Relation: ui.input_relation,
         }
-        for arg_name in passing_args:
-            if arg_name in mapping_input:
-                kwargs[arg_name] = mapping_input[arg_name]()
+
+        for arg_name in params:
+            annotate_class = params[arg_name].annotation
+            for datatype in datatype_to_input_method:
+                if match_type_or_contain(datatype, annotate_class):
+                    kwargs[arg_name] = datatype_to_input_method[datatype]()
+            # if match_type_or_contain(set, annotate_class):
+            #     kwargs[arg_name] = UserInteraction.input_attrs()
+            # if match_type_or_contain(FD, annotate_class):
+            #     kwargs[arg_name] = UserInteraction.input_fd()
+
+            # if match_type_or_contain(FDSet, annotate_class):
+            #     kwargs[arg_name] = UserInteraction.input_fds()
+            # if match_type_or_contain(Relation, annotate_class):
+            #     kwargs[arg_name] = UserInteraction.input_relation()
+
+
         result = f(*args, **kwargs)
         print(result)
         return result
@@ -1039,3 +1060,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+    RelationModel.find_key_from_relation()
+    RelationModel.decompose_to_bcnf()
+    RelationModel.is_fds_equivalen()
