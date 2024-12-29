@@ -2,9 +2,9 @@
 
 import inspect
 from copy import deepcopy
+from functools import wraps
 from os import name, system
 from typing import Any, Iterable, Self, Union, override
-from functools import wraps
 
 
 # Use to make FD as immutable => able to add in set
@@ -143,7 +143,6 @@ class Armstrong:
         for fd in list(fds):
             for sub in fd.rhs:
                 fds.add(FD(fd.lhs, [sub]))
-
 
     @staticmethod
     def apply_ir3_ir5(fds: FDSet):
@@ -318,9 +317,9 @@ def backtrack(res, superset, subset, index=0):
         subset.pop()
 
 
-
 class SessionStorage:
     storage = []
+
     @classmethod
     def save(cls, obj):
         cls.storage.append(obj)
@@ -333,11 +332,9 @@ class SessionStorage:
     def get_attributes_lst(cls):
         return list(filter(lambda x: isinstance(x, set), cls.storage))
 
-
     @classmethod
     def get_fd_lst(cls):
         return list(filter(lambda x: isinstance(x, FD), cls.storage))
-
 
     @classmethod
     def get_fds_lst(cls):
@@ -907,19 +904,17 @@ class UI:
         Return index select from menu
         """
 
-
         for idx, opt in enumerate(options):
             s = f"[{idx}]" + f" {str(opt)}"
             UI.echo(s)
-
-
 
         if len(options) == 1:
             UI.echo("#Omitted selection. Perform " + options[0])
             return 0
 
         while True:
-            ans = UI.interact_input(f"Select your choice [{0}-{len(options) - 1}]?")
+            ans = UI.interact_input(
+                f"Select your choice [{0}-{len(options) - 1}]?")
             if ans.isdigit() and int(ans) in range(len(options)):
                 return int(ans)
 
@@ -931,7 +926,6 @@ class UI:
 
     @staticmethod
     def get_new_fd():
-
 
         while True:
             try:
@@ -946,102 +940,108 @@ class UI:
         attrs = UI.get_new_attrs()
 
         UI.echo("2. Assing FD constraint in relation")
-        fds :FDSet
-        if workWithSession: fds = UI.input_fds()
-        else: fds= UI.get_new_fds()
+        fds: FDSet
+        if workWithSession:
+            fds = UI.input_fds()
+        else:
+            fds = UI.get_new_fds()
         UI.echo("3. Primary key (enter to skip)")
         primary_key = UI.get_new_attrs()
         UI.echo("4. Candidate key (enter to skip)")
-        candidate_keys = UI.get_new_collection(UI.get_new_attrs, "Enter number of candidate key: ", 0)
-        r = Relation(attrs=attrs, name = name, fds=fds,primary_key=primary_key, candidate_keys=candidate_keys)
-
+        candidate_keys = UI.get_new_collection(
+            UI.get_new_attrs, "Enter number of candidate key: ", 0
+        )
+        r = Relation(
+            attrs=attrs,
+            name=name,
+            fds=fds,
+            primary_key=primary_key,
+            candidate_keys=candidate_keys,
+        )
 
         return r
-
-
-
 
     @staticmethod
     def input_fd():
 
         input_handler = UI.get_new_fd
-        fd  = UI.input_from_session(FD, input_handler)
+        fd = UI.input_from_session(FD, input_handler)
         return fd
 
-
     @staticmethod
-    def get_new_collection(func_input_new_item,prompt = "", limit_min_value = 1  , require = True ):
+    def get_new_collection(
+        func_input_new_item, prompt="", limit_min_value=1, require=True
+    ):
         num: int
         while True:
-            request = prompt if prompt else  "Enter number of input "
+            request = prompt if prompt else "Enter number of input "
             ans = UI.scan(request)
-            if  not ans.strip()  and not require:
+            if not ans.strip() and not require:
                 num = 0
                 break
             if ans and ans.strip().isdigit() and int(ans.strip()) >= limit_min_value:
                 num = int(ans.strip())
                 break
             else:
-                UI.echo("Bad input, please try again with a number greater than " + str(limit_min_value - 1) )
+                UI.echo(
+                    "Bad input, please try again with a number greater than "
+                    + str(limit_min_value - 1)
+                )
         rs = []
         for i in range(num):
             rs.append(func_input_new_item())
         return rs
-
-
-
 
     @staticmethod
     def get_new_fds():
         fd_lst = UI.get_new_collection(UI.get_new_fd, "Number of FD in FDs: ")
         return FDSet(fd_lst)
 
-
     @staticmethod
     def input_fds():
         input_handler = UI.get_new_fds
-        rs  = UI.input_from_session(FD, input_handler)
+        rs = UI.input_from_session(FD, input_handler)
         return rs
-
 
     @staticmethod
     def input_relation():
         # TODO
-        return  UI.get_new_relation()
-
-
+        return UI.get_new_relation()
 
     @staticmethod
-    def get_new_attrs(require = True ) -> set:
+    def get_new_attrs(require=True) -> set:
         while True:
             try:
-                rs = set(w.strip() for w in UI.scan("Attribute: ").strip().split(",") if w.strip())
+                rs = set(
+                    w.strip()
+                    for w in UI.scan("Attribute: ").strip().split(",")
+                    if w.strip()
+                )
                 if require and len(rs) > 0:
                     return rs
                 elif not require and len(rs) == 0:
                     return rs
             except:
-                UI.echo("Bad input. Please try again a list of property like A, B, C separate by comma")
-
+                UI.echo(
+                    "Bad input. Please try again a list of property like A, B, C separate by comma"
+                )
 
     @staticmethod
     def input_attrs():
         input_handler = UI.get_new_attrs
-        rs  = UI.input_from_session(FD, input_handler)
+        rs = UI.input_from_session(FD, input_handler)
         return rs
-
 
     @staticmethod
     def input_from_session(clazz, add_hander_func):
         session_options = SessionStorage.get_lst(clazz)
-        opts = [str(opt) for opt in session_options ]
+        opts = [str(opt) for opt in session_options]
         opts.insert(0, "Add new on from input")
-        select_idx  = UI.menu_get_option(opts)
+        select_idx = UI.menu_get_option(opts)
         if select_idx == 0:
             return add_hander_func()
         else:
             return session_options[select_idx - 1]
-
 
     @staticmethod
     def clear():
@@ -1052,22 +1052,23 @@ class UI:
 
         else:
             _ = system("clear")
+
     @staticmethod
     def ask(questions: str) -> bool:
         ans = UI.interact_input(questions.strip().title() + " [Y/n]?")
-        yes = ["y", "yes" , '']
+        yes = ["y", "yes", ""]
         if ans.strip() in yes:
             return True
         return False
 
 
-
 def inject_args(f):
     def match_type_or_contain(A: type, B: type | Union[Any, Any]):
         try:
-           return A == B or A in B.__args__
+            return A == B or A in B.__args__
         except Exception as ex:
             return False
+
     # Preservation  metadata docstring
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -1083,10 +1084,9 @@ def inject_args(f):
             Relation: UI.input_relation,
         }
 
-
         step = 1
         for arg_name in params:
-            humanrable_arg_name = arg_name.strip().replace("_" , " ")
+            humanrable_arg_name = arg_name.strip().replace("_", " ")
 
             annotate_class = params[arg_name].annotation
 
@@ -1095,10 +1095,19 @@ def inject_args(f):
                 if match_type_or_contain(datatype, annotate_class):
                     match_data_type = datatype
             if match_data_type:
-                match_str = str(match_data_type.__name__) if match_data_type != set else "attributes"
-                UI.echo(f"##Step {step}: provide value for " + humanrable_arg_name + " as " + match_str)
+                match_str = (
+                    str(match_data_type.__name__)
+                    if match_data_type != set
+                    else "attributes"
+                )
+                UI.echo(
+                    f"##Step {step}: provide value for "
+                    + humanrable_arg_name
+                    + " as "
+                    + match_str
+                )
                 kwargs[arg_name] = datatype_to_input_method[match_data_type]()
-            step +=1
+            step += 1
 
         UI.echo("\n#Processing ...\n")
         result = f(*args, **kwargs)
@@ -1106,7 +1115,7 @@ def inject_args(f):
             for i in result:
                 UI.echo(result)
         elif isinstance(result, bool):
-                UI.echo(result)
+            UI.echo(result)
         elif not result:
             UI.echo("No such result")
         else:
@@ -1164,7 +1173,10 @@ class RelationModel:
         """
         Compare two set of function dependency is equivalent
         """
-        return "Yes they are equivalent" if FDSets.equivalent(a, b) else "No they are not"
+        return (
+            "Yes they are equivalent" if FDSets.equivalent(
+                a, b) else "No they are not"
+        )
 
     @inject_args
     @staticmethod
@@ -1189,7 +1201,7 @@ class RelationModel:
         Find key from relation
         """
         key = relation.get_primary_key()
-        return  key if key else "Could not found the key of relation"
+        return key if key else "Could not found the key of relation"
 
     @inject_args
     @staticmethod
@@ -1230,10 +1242,11 @@ class RelationModel:
 
 
 class ClassMethodProxy:
-    def __init__(self, name,  ref, doc ="") -> None:
+    def __init__(self, name, ref, doc="") -> None:
         self.name = name
         self.doc = doc
         self.ref = ref
+
 
 def get_methods_proxy(cls):
 
@@ -1243,17 +1256,13 @@ def get_methods_proxy(cls):
             name = func
             call_ref = getattr(cls, func)
             doc = call_ref.__doc__.strip()
-            rs.append(
-                ClassMethodProxy(name, call_ref, doc )
-            )
+            rs.append(ClassMethodProxy(name, call_ref, doc))
 
     # Hardcode exit method to the end
     for idx in range(len(rs)):
         if rs[idx].name.lower() == "close":
-            rs[idx] , rs[len(rs) - 1] = rs[len(rs) - 1], rs[idx]
+            rs[idx], rs[len(rs) - 1] = rs[len(rs) - 1], rs[idx]
     return rs
-
-
 
 
 def main():
@@ -1274,25 +1283,22 @@ def main():
     test_decompose_to_3nf()
     test_decompose_to_bcnf()
 
-    methods_px= get_methods_proxy(RelationModel)
+    methods_px = get_methods_proxy(RelationModel)
     menu_opts = [f.doc for f in methods_px]
-
 
     while True:
         UI.clear()
         selected_idx = UI.menu_get_option(menu_opts)
-        select_opt  = methods_px[selected_idx]
+        select_opt = methods_px[selected_idx]
         method = select_opt.ref
         UI.clear()
         UI.echo(select_opt.doc)
         UI.show_banner()
         method()
 
-
         UI.show_banner()
-        if not UI.ask("#Back to menu"): break
-
-
+        if not UI.ask("#Back to menu"):
+            break
 
 
 if __name__ == "__main__":
