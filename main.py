@@ -914,7 +914,7 @@ class UI:
 
         while True:
             ans = UI.interact_input(
-                f"Select your choice [{0}-{len(options) - 1}]?")
+                f"Select choice [{0}-{len(options) - 1}]?")
             if ans.isdigit() and int(ans) in range(len(options)):
                 return int(ans)
 
@@ -937,7 +937,8 @@ class UI:
     def get_new_relation():
         workWithSession = False
         name = UI.scan("1. Relation name: ")
-        attrs = UI.get_new_attrs()
+
+        attrs = UI.get_new_attrs(prompt="2. All attribute: ")
 
         UI.echo("2. Assing FD constraint in relation")
         fds: FDSet
@@ -946,10 +947,10 @@ class UI:
         else:
             fds = UI.get_new_fds()
         UI.echo("3. Primary key (enter to skip)")
-        primary_key = UI.get_new_attrs()
+        primary_key = UI.get_new_attrs(require=False)
         UI.echo("4. Candidate key (enter to skip)")
         candidate_keys = UI.get_new_collection(
-            UI.get_new_attrs, "Enter number of candidate key: ", 0
+            UI.get_new_attrs, "Enter number of candidate key: ", 0 , require=False
         )
         r = Relation(
             attrs=attrs,
@@ -984,8 +985,8 @@ class UI:
                 break
             else:
                 UI.echo(
-                    "Bad input, please try again with a number greater than "
-                    + str(limit_min_value - 1)
+                    "Bad input, please try again with a number >="
+                    + str(limit_min_value)
                 )
         rs = []
         for i in range(num):
@@ -994,7 +995,7 @@ class UI:
 
     @staticmethod
     def get_new_fds():
-        fd_lst = UI.get_new_collection(UI.get_new_fd, "Number of FD in FDs: ")
+        fd_lst = UI.get_new_collection(UI.get_new_fd, "Number of FD in FDs: ", require=False)
         return FDSet(fd_lst)
 
     @staticmethod
@@ -1009,22 +1010,22 @@ class UI:
         return UI.get_new_relation()
 
     @staticmethod
-    def get_new_attrs(require=True) -> set:
+    def get_new_attrs(require=True,prompt ="Attribute: ") -> set:
+        error_msg = "Bad input. Please try again a list of property like A, B, C separate by comma"
         while True:
             try:
                 rs = set(
                     w.strip()
-                    for w in UI.scan("Attribute: ").strip().split(",")
+                    for w in UI.scan(prompt).strip().split(",")
                     if w.strip()
                 )
                 if require and len(rs) > 0:
                     return rs
                 elif not require and len(rs) == 0:
                     return rs
+                UI.echo(error_msg)
             except:
-                UI.echo(
-                    "Bad input. Please try again a list of property like A, B, C separate by comma"
-                )
+                UI.echo(error_msg)
 
     @staticmethod
     def input_attrs():
@@ -1113,7 +1114,7 @@ def inject_args(f):
         result = f(*args, **kwargs)
         if isinstance(result, list):
             for i in result:
-                UI.echo(result)
+                UI.echo(i)
         elif isinstance(result, bool):
             UI.echo(result)
         elif not result:
