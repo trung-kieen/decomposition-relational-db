@@ -2,9 +2,9 @@
 
 import inspect
 from copy import deepcopy
+from functools import wraps
 from os import name, system
 from typing import Any, Iterable, Self, Union, override
-from functools import wraps
 
 
 # Use to make FD as immutable => able to add in set
@@ -143,7 +143,6 @@ class Armstrong:
         for fd in list(fds):
             for sub in fd.rhs:
                 fds.add(FD(fd.lhs, [sub]))
-
 
     @staticmethod
     def apply_ir3_ir5(fds: FDSet):
@@ -880,7 +879,8 @@ class UI:
             s = f"[{idx}]" + f" {opt}"
             UI.echo(s)
         while True:
-            ans = UI.interact_input(f"Select your choice [{0}-{len(options) - 1}]?")
+            ans = UI.interact_input(
+                f"Select your choice [{0}-{len(options) - 1}]?")
             if ans.isdigit() and int(ans) in range(len(options)):
                 return int(ans)
 
@@ -919,22 +919,23 @@ class UI:
 
         else:
             _ = system("clear")
+
     @staticmethod
     def ask(questions: str) -> bool:
         ans = UI.interact_input(questions.strip().title() + " [Y/n]?")
-        yes = ["y", "yes" , '']
+        yes = ["y", "yes", ""]
         if ans.strip() in yes:
             return True
         return False
 
 
-
 def inject_args(f):
     def match_type_or_contain(A: type, B: type | Union[Any, Any]):
         try:
-           return A == B or A in B.__args__
+            return A == B or A in B.__args__
         except Exception as ex:
             return False
+
     # Preservation  metadata docstring
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -1018,7 +1019,10 @@ class RelationModel:
         """
         Compare two set of function dependency is equivalent
         """
-        return "Yes they are equivalent" if FDSets.equivalent(a, b) else "No they are not"
+        return (
+            "Yes they are equivalent" if FDSets.equivalent(
+                a, b) else "No they are not"
+        )
 
     @inject_args
     @staticmethod
@@ -1043,7 +1047,7 @@ class RelationModel:
         Find key from relation
         """
         key = relation.get_primary_key()
-        return  key if key else "Could not found the key of relation"
+        return key if key else "Could not found the key of relation"
 
     @inject_args
     @staticmethod
@@ -1084,10 +1088,11 @@ class RelationModel:
 
 
 class ClassMethodProxy:
-    def __init__(self, name,  ref, doc ="") -> None:
+    def __init__(self, name, ref, doc="") -> None:
         self.name = name
         self.doc = doc
         self.ref = ref
+
 
 def get_methods_proxy(cls):
 
@@ -1097,17 +1102,13 @@ def get_methods_proxy(cls):
             name = func
             call_ref = getattr(cls, func)
             doc = call_ref.__doc__.strip()
-            rs.append(
-                ClassMethodProxy(name, call_ref, doc )
-            )
+            rs.append(ClassMethodProxy(name, call_ref, doc))
 
     # Hardcode exit method to the end
     for idx in range(len(rs)):
         if rs[idx].name.lower() == "close":
-            rs[idx] , rs[len(rs) - 1] = rs[len(rs) - 1], rs[idx]
+            rs[idx], rs[len(rs) - 1] = rs[len(rs) - 1], rs[idx]
     return rs
-
-
 
 
 def main():
@@ -1128,25 +1129,22 @@ def main():
     test_decompose_to_3nf()
     test_decompose_to_bcnf()
 
-    methods_px= get_methods_proxy(RelationModel)
+    methods_px = get_methods_proxy(RelationModel)
     menu_opts = [f.doc for f in methods_px]
-
 
     while True:
         UI.clear()
         selected_idx = UI.menu_get_option(menu_opts)
-        select_opt  = methods_px[selected_idx]
+        select_opt = methods_px[selected_idx]
         method = select_opt.ref
         UI.clear()
         UI.echo(select_opt.doc)
         UI.show_banner()
         method()
 
-
         UI.show_banner()
-        if not UI.ask("Back to menu"): break
-
-
+        if not UI.ask("Back to menu"):
+            break
 
 
 if __name__ == "__main__":
