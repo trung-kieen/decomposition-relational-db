@@ -920,9 +920,10 @@ class UserInteraction:
 def inject_args(f):
     def match_type_or_contain(A: type, B: type | Union[Any, Any]):
         try:
-           return A == B or A in B.__args__
+            return A == B or A in B.__args__
         except Exception as ex:
             return False
+
     def wrapper(*args, **kwargs):
         func_prototype = inspect.signature(f)
 
@@ -950,7 +951,6 @@ def inject_args(f):
             #     kwargs[arg_name] = UserInteraction.input_fds()
             # if match_type_or_contain(Relation, annotate_class):
             #     kwargs[arg_name] = UserInteraction.input_relation()
-
 
         result = f(*args, **kwargs)
         print(result)
