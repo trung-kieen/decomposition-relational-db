@@ -1,6 +1,11 @@
 A synthesis approach to design of relations given a set of FDs
 
+___
 
+
+[menu](./assets/interactive_menu.png)
+[decompose 3nf](./assets/3nf_01.png)
+[decompose bcnf](./assets/bcnf_01.png)
 # Todos
 - [x] Attribute closure 
 - [x] Armstrong: ir2, ir3, ir4, ir5
@@ -16,3 +21,9 @@ A synthesis approach to design of relations given a set of FDs
 - [x] Menu interactive
 - [ ] Args parser integrate click
 - [ ] Reduce random order of set iterator in minimal_cover method
+
+
+
+___ 
+
+

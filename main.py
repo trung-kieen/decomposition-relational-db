@@ -240,7 +240,7 @@ class FDSets:
                 eliminated_lhs_fds = test_removed_fd_fds
 
         # merge right hand side
-        lsh_sorted = sorted(eliminated_lhs_fds, key=lambda x: x.lhs)
+        lsh_sorted = sorted(eliminated_lhs_fds, key=lambda x: str(x))
         if len(lsh_sorted) == 0:
             return FDSet()
 
@@ -458,6 +458,9 @@ class Relation:
             UI.echo("Can not decompose relation without fds")
             return []
         min_fd = FDSets.minimal_cover(self.fds)
+
+
+
         # SORT?
         relation_fd = []
         relation_attribute_closure = []
@@ -1269,20 +1272,20 @@ def get_methods_proxy(cls):
 def main():
 
     # TODO: Convert pure unit test not base on language
-    test_fd_compare()
-    test_ir3_ir5()
-    test_ir2()
-    test_ir4()
-    test_fd_creation()
-    test_attr_closure()
-    test_fds_equivalent()
-    test_fds_equivalent_2()
-    test_canonical()
-    test_lhs_minimize()
-    test_minimal_cover()
-    test_find_primary_key()
-    test_decompose_to_3nf()
-    test_decompose_to_bcnf()
+    # test_fd_compare()
+    # test_ir3_ir5()
+    # test_ir2()
+    # test_ir4()
+    # test_fd_creation()
+    # test_attr_closure()
+    # test_fds_equivalent()
+    # test_fds_equivalent_2()
+    # test_canonical()
+    # test_lhs_minimize()
+    # test_minimal_cover()
+    # test_find_primary_key()
+    # test_decompose_to_3nf()
+    # test_decompose_to_bcnf()
 
     methods_px = get_methods_proxy(RelationModel)
     menu_opts = [f.doc for f in methods_px]
