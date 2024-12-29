@@ -318,6 +318,36 @@ def backtrack(res, superset, subset, index=0):
         subset.pop()
 
 
+
+class SessionStorage:
+    storage = []
+    @classmethod
+    def save(cls, obj):
+        cls.storage.append(obj)
+
+    @classmethod
+    def get_lst(cls, clazz_search):
+        return list(filter(lambda x: isinstance(x, clazz_search), cls.storage))
+
+    @classmethod
+    def get_attributes_lst(cls):
+        return list(filter(lambda x: isinstance(x, set), cls.storage))
+
+
+    @classmethod
+    def get_fd_lst(cls):
+        return list(filter(lambda x: isinstance(x, FD), cls.storage))
+
+
+    @classmethod
+    def get_fds_lst(cls):
+        return list(filter(lambda x: isinstance(x, FDSet), cls.storage))
+
+    @classmethod
+    def get_relation_lst(cls):
+        return list(filter(lambda x: isinstance(x, Relation), cls.storage))
+
+
 class Relation:
     _name_counter = 0
 
@@ -821,6 +851,7 @@ class AttributeSets:
         Input: single attr of list, set attr
         Output: set attr
         """
+        # TODO: Check
         x_closure = attrs.copy()
         while True:
             old_len = len(x_closure)
@@ -876,9 +907,17 @@ class UI:
         Return index select from menu
         """
 
+
         for idx, opt in enumerate(options):
-            s = f"[{idx}]" + f" {opt}"
+            s = f"[{idx}]" + f" {str(opt)}"
             UI.echo(s)
+
+
+
+        if len(options) == 1:
+            UI.echo("#Omitted selection. Perform " + options[0])
+            return 0
+
         while True:
             ans = UI.interact_input(f"Select your choice [{0}-{len(options) - 1}]?")
             if ans.isdigit() and int(ans) in range(len(options)):
@@ -891,24 +930,118 @@ class UI:
         print(args)
 
     @staticmethod
+    def get_new_fd():
+
+
+        while True:
+            try:
+                return FD.translate_semantic(UI.scan("FD: "))
+            except:
+                UI.echo("Bad input, please try again.\nFD example: A, C -> D, E\n")
+
+    @staticmethod
+    def get_new_relation():
+        workWithSession = False
+        name = UI.scan("1. Relation name: ")
+        attrs = UI.get_new_attrs()
+
+        UI.echo("2. Assing FD constraint in relation")
+        fds :FDSet
+        if workWithSession: fds = UI.input_fds()
+        else: fds= UI.get_new_fds()
+        UI.echo("3. Primary key (enter to skip)")
+        primary_key = UI.get_new_attrs()
+        UI.echo("4. Candidate key (enter to skip)")
+        candidate_keys = UI.get_new_collection(UI.get_new_attrs, "Enter number of candidate key: ", 0)
+        r = Relation(attrs=attrs, name = name, fds=fds,primary_key=primary_key, candidate_keys=candidate_keys)
+
+
+        return r
+
+
+
+
+    @staticmethod
     def input_fd():
-        print("input fd")
-        return FD.translate_semantic("A -> B")
+
+        input_handler = UI.get_new_fd
+        fd  = UI.input_from_session(FD, input_handler)
+        return fd
+
+
+    @staticmethod
+    def get_new_collection(func_input_new_item,prompt = "", limit_min_value = 1  , require = True ):
+        num: int
+        while True:
+            request = prompt if prompt else  "Enter number of input "
+            ans = UI.scan(request)
+            if  not ans.strip()  and not require:
+                num = 0
+                break
+            if ans and ans.strip().isdigit() and int(ans.strip()) >= limit_min_value:
+                num = int(ans.strip())
+                break
+            else:
+                UI.echo("Bad input, please try again with a number greater than " + str(limit_min_value - 1) )
+        rs = []
+        for i in range(num):
+            rs.append(func_input_new_item())
+        return rs
+
+
+
+
+    @staticmethod
+    def get_new_fds():
+        fd_lst = UI.get_new_collection(UI.get_new_fd, "Number of FD in FDs: ")
+        return FDSet(fd_lst)
+
 
     @staticmethod
     def input_fds():
-        print("input fds")
-        return FDSet([FD.translate_semantic("C -> B")])
+        input_handler = UI.get_new_fds
+        rs  = UI.input_from_session(FD, input_handler)
+        return rs
+
 
     @staticmethod
     def input_relation():
-        print("input relation")
-        return Relation.translate_semantic("R(A, B, C, D)")
+        # TODO
+        return  UI.get_new_relation()
+
+
+
+    @staticmethod
+    def get_new_attrs(require = True ) -> set:
+        while True:
+            try:
+                rs = set(w.strip() for w in UI.scan("Attribute: ").strip().split(",") if w.strip())
+                if require and len(rs) > 0:
+                    return rs
+                elif not require and len(rs) == 0:
+                    return rs
+            except:
+                UI.echo("Bad input. Please try again a list of property like A, B, C separate by comma")
+
 
     @staticmethod
     def input_attrs():
-        print("input attrs")
-        return set(list("ABCD"))
+        input_handler = UI.get_new_attrs
+        rs  = UI.input_from_session(FD, input_handler)
+        return rs
+
+
+    @staticmethod
+    def input_from_session(clazz, add_hander_func):
+        session_options = SessionStorage.get_lst(clazz)
+        opts = [str(opt) for opt in session_options ]
+        opts.insert(0, "Add new on from input")
+        select_idx  = UI.menu_get_option(opts)
+        if select_idx == 0:
+            return add_hander_func()
+        else:
+            return session_options[select_idx - 1]
+
 
     @staticmethod
     def clear():
@@ -944,22 +1077,35 @@ def inject_args(f):
         params = func_prototype.parameters
 
         datatype_to_input_method = {
-            set: UI.input_attrs,
-            FD: UI.input_fd,
-            FDSet: UI.input_fds,
+            set: UI.get_new_attrs,
+            FD: UI.get_new_fd,
+            FDSet: UI.get_new_fds,
             Relation: UI.input_relation,
         }
 
+
+        step = 1
         for arg_name in params:
+            humanrable_arg_name = arg_name.strip().replace("_" , " ")
+
             annotate_class = params[arg_name].annotation
+
+            match_data_type = None
             for datatype in datatype_to_input_method:
                 if match_type_or_contain(datatype, annotate_class):
-                    kwargs[arg_name] = datatype_to_input_method[datatype]()
+                    match_data_type = datatype
+            if match_data_type:
+                match_str = str(match_data_type.__name__) if match_data_type != set else "attributes"
+                UI.echo(f"##Step {step}: provide value for " + humanrable_arg_name + " as " + match_str)
+                kwargs[arg_name] = datatype_to_input_method[match_data_type]()
+            step +=1
 
-        UI.echo("\nProcessing ...\n")
+        UI.echo("\n#Processing ...\n")
         result = f(*args, **kwargs)
         if isinstance(result, list):
             for i in result:
+                UI.echo(result)
+        elif isinstance(result, bool):
                 UI.echo(result)
         elif not result:
             UI.echo("No such result")
@@ -1144,7 +1290,7 @@ def main():
 
 
         UI.show_banner()
-        if not UI.ask("Back to menu"): break
+        if not UI.ask("#Back to menu"): break
 
 
 

@@ -13,6 +13,6 @@ A synthesis approach to design of relations given a set of FDs
 - [x] Decompose relation to BCNF from FDs
 - [ ] Check current Normal Form of relation (in general normal form definition)
 - [ ] Test Nonadditive Join Property after decomposition relation
-- [ ] Menu interactive
+- [x] Menu interactive
 - [ ] Args parser integrate click
 - [ ] Reduce random order of set iterator in minimal_cover method
