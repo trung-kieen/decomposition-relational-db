@@ -1,11 +1,17 @@
-A synthesis approach to design of relations given a set of FDs
+# Overview 
+Just a tool to simplify relation normalization process.
 
-___
+![menu](./assets/interactive_menu_02.png)
+![decompose 3nf](./assets/3nf_02.png)
+![decompose bcnf](./assets/bcnf_02.png)
 
 
-[menu](./assets/interactive_menu.png)
-[decompose 3nf](./assets/3nf_01.png)
-[decompose bcnf](./assets/bcnf_01.png)
+# Usage 
+```bash 
+python3 main.py 
+```
+
+
 # Todos
 - [x] Attribute closure 
 - [x] Armstrong: ir2, ir3, ir4, ir5
@@ -16,14 +22,13 @@ ___
 - [x] Check collection of attribute is super key of relation 
 - [x] Decompose relation to 3NF from FDs
 - [x] Decompose relation to BCNF from FDs
+- [x] Menu interactive
 - [ ] Check current Normal Form of relation (in general normal form definition)
 - [ ] Test Nonadditive Join Property after decomposition relation
-- [x] Menu interactive
 - [ ] Args parser integrate click
 - [ ] Reduce random order of set iterator in minimal_cover method
 
 
 
-___ 
-
-
+# Issues
+If you encounter any issues while using feel free to open a new issue. When reporting an issue, please include any relevant logs or screenshots.
