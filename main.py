@@ -459,8 +459,6 @@ class Relation:
             return []
         min_fd = FDSets.minimal_cover(self.fds)
 
-
-
         # SORT?
         relation_fd = []
         relation_attribute_closure = []
@@ -916,8 +914,7 @@ class UI:
             return 0
 
         while True:
-            ans = UI.interact_input(
-                f"Select choice [{0}-{len(options) - 1}]?")
+            ans = UI.interact_input(f"Select choice [{0}-{len(options) - 1}]?")
             if ans.isdigit() and int(ans) in range(len(options)):
                 return int(ans)
 
@@ -953,7 +950,7 @@ class UI:
         primary_key = UI.get_new_attrs(require=False)
         UI.echo("4. Candidate key (enter to skip)")
         candidate_keys = UI.get_new_collection(
-            UI.get_new_attrs, "Enter number of candidate key: ", 0 , require=False
+            UI.get_new_attrs, "Enter number of candidate key: ", 0, require=False
         )
         r = Relation(
             attrs=attrs,
@@ -998,7 +995,9 @@ class UI:
 
     @staticmethod
     def get_new_fds():
-        fd_lst = UI.get_new_collection(UI.get_new_fd, "Number of FD in FDs: ", require=False)
+        fd_lst = UI.get_new_collection(
+            UI.get_new_fd, "Number of FD in FDs: ", require=False
+        )
         return FDSet(fd_lst)
 
     @staticmethod
@@ -1013,14 +1012,12 @@ class UI:
         return UI.get_new_relation()
 
     @staticmethod
-    def get_new_attrs(require=True,prompt ="Attribute: ") -> set:
+    def get_new_attrs(require=True, prompt="Attribute: ") -> set:
         error_msg = "Bad input. Please try again a list of property like A, B, C separate by comma"
         while True:
             try:
                 rs = set(
-                    w.strip()
-                    for w in UI.scan(prompt).strip().split(",")
-                    if w.strip()
+                    w.strip() for w in UI.scan(prompt).strip().split(",") if w.strip()
                 )
                 if require and len(rs) > 0:
                     return rs
