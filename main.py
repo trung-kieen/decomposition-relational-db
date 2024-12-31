@@ -924,11 +924,6 @@ class UI:
     ):
         print(args)
 
-
-
-
-
-
     @staticmethod
     def clear():
 
@@ -950,7 +945,6 @@ class UI:
 
 class InputComponent:
 
-
     @staticmethod
     def new_relation():
         workWithSession = False
@@ -968,7 +962,10 @@ class InputComponent:
         primary_key = InputComponent.new_attrs(require=False)
         UI.echo("4. Candidate key (enter to skip)")
         candidate_keys = InputComponent.new_collection(
-            InputComponent.new_attrs, "Enter number of candidate key: ", 0, require=False
+            InputComponent.new_attrs,
+            "Enter number of candidate key: ",
+            0,
+            require=False,
         )
         r = Relation(
             attrs=attrs,
@@ -987,13 +984,8 @@ class InputComponent:
         fd = InputComponent.delegate_session(FD, input_handler)
         return fd
 
-
-
-
     @staticmethod
-    def new_collection(
-        func_input_new_item, prompt="", limit_min_value=1, require=True
-    ):
+    def new_collection(func_input_new_item, prompt="", limit_min_value=1, require=True):
         num: int
         while True:
             request = prompt if prompt else "Enter number of input "
@@ -1048,13 +1040,11 @@ class InputComponent:
             except:
                 UI.echo(error_msg)
 
-
     @staticmethod
     def general_attrs():
         input_handler = InputComponent.new_attrs
         rs = InputComponent.delegate_session(FD, input_handler)
         return rs
-
 
     @staticmethod
     def delegate_session(clazz, add_hander_func):
@@ -1075,6 +1065,7 @@ class InputComponent:
                 return FD.translate_semantic(UI.scan("FD: "))
             except:
                 UI.echo("Bad input, please try again.\nFD example: A, C -> D, E\n")
+
 
 def ArgInputInjectProvider(f):
     def match_type_or_contain(A: type, B: type | Union[Any, Any]):
