@@ -924,33 +924,51 @@ class UI:
     ):
         print(args)
 
-    @staticmethod
-    def get_new_fd():
 
-        while True:
-            try:
-                return FD.translate_semantic(UI.scan("FD: "))
-            except:
-                UI.echo("Bad input, please try again.\nFD example: A, C -> D, E\n")
+
+
+
 
     @staticmethod
-    def get_new_relation():
+    def clear():
+
+        # for windows
+        if name == "nt":
+            _ = system("cls")
+
+        else:
+            _ = system("clear")
+
+    @staticmethod
+    def ask(questions: str) -> bool:
+        ans = UI.interact_input(questions.strip().title() + " [Y/n]?")
+        yes = ["y", "yes", ""]
+        if ans.strip() in yes:
+            return True
+        return False
+
+
+class InputComponent:
+
+
+    @staticmethod
+    def new_relation():
         workWithSession = False
         name = UI.scan("1. Relation name: ")
 
-        attrs = UI.get_new_attrs(prompt="2. All attribute: ")
+        attrs = InputComponent.new_attrs(prompt="2. All attribute: ")
 
         UI.echo("2. Assing FD constraint in relation")
         fds: FDSet
         if workWithSession:
-            fds = UI.input_fds()
+            fds = InputComponent.general_fds()
         else:
-            fds = UI.get_new_fds()
+            fds = InputComponent.new_fds()
         UI.echo("3. Primary key (enter to skip)")
-        primary_key = UI.get_new_attrs(require=False)
+        primary_key = InputComponent.new_attrs(require=False)
         UI.echo("4. Candidate key (enter to skip)")
-        candidate_keys = UI.get_new_collection(
-            UI.get_new_attrs, "Enter number of candidate key: ", 0, require=False
+        candidate_keys = InputComponent.new_collection(
+            InputComponent.new_attrs, "Enter number of candidate key: ", 0, require=False
         )
         r = Relation(
             attrs=attrs,
@@ -963,14 +981,17 @@ class UI:
         return r
 
     @staticmethod
-    def input_fd():
+    def general_fd():
 
-        input_handler = UI.get_new_fd
-        fd = UI.input_from_session(FD, input_handler)
+        input_handler = InputComponent.new_fd
+        fd = InputComponent.delegate_session(FD, input_handler)
         return fd
 
+
+
+
     @staticmethod
-    def get_new_collection(
+    def new_collection(
         func_input_new_item, prompt="", limit_min_value=1, require=True
     ):
         num: int
@@ -994,25 +1015,25 @@ class UI:
         return rs
 
     @staticmethod
-    def get_new_fds():
-        fd_lst = UI.get_new_collection(
-            UI.get_new_fd, "Number of FD in FDs: ", require=False
+    def general_relation():
+        # TODO
+        return InputComponent.new_relation()
+
+    @staticmethod
+    def new_fds():
+        fd_lst = InputComponent.new_collection(
+            InputComponent.new_fd, "Number of FD in FDs: ", require=False
         )
         return FDSet(fd_lst)
 
     @staticmethod
-    def input_fds():
-        input_handler = UI.get_new_fds
-        rs = UI.input_from_session(FD, input_handler)
+    def general_fds():
+        input_handler = InputComponent.new_fds
+        rs = InputComponent.delegate_session(FD, input_handler)
         return rs
 
     @staticmethod
-    def input_relation():
-        # TODO
-        return UI.get_new_relation()
-
-    @staticmethod
-    def get_new_attrs(require=True, prompt="Attribute: ") -> set:
+    def new_attrs(require=True, prompt="Attribute: ") -> set:
         error_msg = "Bad input. Please try again a list of property like A, B, C separate by comma"
         while True:
             try:
@@ -1027,14 +1048,16 @@ class UI:
             except:
                 UI.echo(error_msg)
 
-    @staticmethod
-    def input_attrs():
-        input_handler = UI.get_new_attrs
-        rs = UI.input_from_session(FD, input_handler)
-        return rs
 
     @staticmethod
-    def input_from_session(clazz, add_hander_func):
+    def general_attrs():
+        input_handler = InputComponent.new_attrs
+        rs = InputComponent.delegate_session(FD, input_handler)
+        return rs
+
+
+    @staticmethod
+    def delegate_session(clazz, add_hander_func):
         session_options = SessionStorage.get_lst(clazz)
         opts = [str(opt) for opt in session_options]
         opts.insert(0, "Add new on from input")
@@ -1045,25 +1068,15 @@ class UI:
             return session_options[select_idx - 1]
 
     @staticmethod
-    def clear():
+    def new_fd():
 
-        # for windows
-        if name == "nt":
-            _ = system("cls")
+        while True:
+            try:
+                return FD.translate_semantic(UI.scan("FD: "))
+            except:
+                UI.echo("Bad input, please try again.\nFD example: A, C -> D, E\n")
 
-        else:
-            _ = system("clear")
-
-    @staticmethod
-    def ask(questions: str) -> bool:
-        ans = UI.interact_input(questions.strip().title() + " [Y/n]?")
-        yes = ["y", "yes", ""]
-        if ans.strip() in yes:
-            return True
-        return False
-
-
-def inject_args(f):
+def ArgInputInjectProvider(f):
     def match_type_or_contain(A: type, B: type | Union[Any, Any]):
         try:
             return A == B or A in B.__args__
@@ -1079,10 +1092,10 @@ def inject_args(f):
         params = func_prototype.parameters
 
         datatype_to_input_method = {
-            set: UI.get_new_attrs,
-            FD: UI.get_new_fd,
-            FDSet: UI.get_new_fds,
-            Relation: UI.input_relation,
+            set: InputComponent.new_attrs,
+            FD: InputComponent.new_fd,
+            FDSet: InputComponent.new_fds,
+            Relation: InputComponent.general_relation,
         }
 
         step = 1
@@ -1133,7 +1146,7 @@ class RelationModel:
     Any parameter will get input from user via injection so leave them None as default
     """
 
-    @inject_args
+    @ArgInputInjectProvider
     @staticmethod
     def attribute_closure(attrs: set | None = None, fds: FDSet | None = None) -> set:
         """
@@ -1141,7 +1154,7 @@ class RelationModel:
         """
         return AttributeSets.closure(attrs, fds)
 
-    @inject_args
+    @ArgInputInjectProvider
     @staticmethod
     def apply_ir2(fds: FDSet | None = None) -> None:
         """
@@ -1150,7 +1163,7 @@ class RelationModel:
         Armstrong.apply_ir2(fds)
         return fds
 
-    @inject_args
+    @ArgInputInjectProvider
     @staticmethod
     def apply_ir4(fds: FDSet | None = None) -> None:
         """
@@ -1159,7 +1172,7 @@ class RelationModel:
         Armstrong.apply_ir4(fds)
         return fds
 
-    @inject_args
+    @ArgInputInjectProvider
     @staticmethod
     def apply_ir3_ir5(fds: FDSet | None = None) -> None:
         """
@@ -1168,7 +1181,7 @@ class RelationModel:
         Armstrong.apply_ir3_ir5(fds)
         return fds
 
-    @inject_args
+    @ArgInputInjectProvider
     @staticmethod
     def is_fds_equivalen(a: FDSet | None = None, b: FDSet | None = None):
         """
@@ -1179,7 +1192,7 @@ class RelationModel:
                 a, b) else "No they are not"
         )
 
-    @inject_args
+    @ArgInputInjectProvider
     @staticmethod
     def fds_closure(fds: FDSet | None = None) -> FDSet:
         """
@@ -1187,7 +1200,7 @@ class RelationModel:
         """
         return FDSets.closure(fds)
 
-    @inject_args
+    @ArgInputInjectProvider
     @staticmethod
     def find_key(attrs: set | None = None, fds: FDSet | None = None) -> set:
         """
@@ -1195,7 +1208,7 @@ class RelationModel:
         """
         return AttributeSets.primary_key(attrs, fds)
 
-    @inject_args
+    @ArgInputInjectProvider
     @staticmethod
     def find_key_from_relation(relation: Relation | None = None) -> set | None:
         """
@@ -1204,7 +1217,7 @@ class RelationModel:
         key = relation.get_primary_key()
         return key if key else "Could not found the key of relation"
 
-    @inject_args
+    @ArgInputInjectProvider
     @staticmethod
     def is_superkey(
         attrs_check: set | None = None,
@@ -1216,7 +1229,7 @@ class RelationModel:
         """
         return AttributeSets.is_superkey(attrs_check, all_attrs, fds)
 
-    @inject_args
+    @ArgInputInjectProvider
     @staticmethod
     def decompose_to_3nf(relation: Relation | None = None) -> Iterable[Relation]:
         """
@@ -1224,7 +1237,7 @@ class RelationModel:
         """
         return relation.to_3nf()
 
-    @inject_args
+    @ArgInputInjectProvider
     @staticmethod
     def decompose_to_bcnf(relation: Relation | None = None) -> Iterable[Relation]:
         """
@@ -1232,7 +1245,7 @@ class RelationModel:
         """
         return relation.to_bcnf()
 
-    @inject_args
+    @ArgInputInjectProvider
     @staticmethod
     def close():
         """
