@@ -29,6 +29,10 @@ python3 main.py
 - [ ] Reduce random order of set iterator in minimal_cover method
 
 
-
 # Issues
 If you encounter any issues while using feel free to open a new issue. When reporting an issue, please include any relevant logs or screenshots.
+
+# Disclaimers
+All code is kept in one file for portability and ease of execution.
+
+Manually providing user inputs became tedious, so I implemented dynamic input injection.

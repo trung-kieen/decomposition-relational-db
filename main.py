@@ -895,6 +895,7 @@ class UI:
     def show_banner():
         UI.echo("_" * 100)
 
+
     @staticmethod
     def interact_input(inline_prompt) -> str:
         return input(inline_prompt + "\n>")
@@ -961,7 +962,7 @@ class InputComponent:
         UI.echo("2. Assing FD constraint in relation")
         fds: FDSet
         if workWithSession:
-            fds = InputComponent.general_fds()
+            fds = InputComponent.select_fds()
         else:
             fds = InputComponent.new_fds()
         UI.echo("3. Primary key (enter to skip)")
@@ -981,7 +982,7 @@ class InputComponent:
         return r
 
     @staticmethod
-    def general_fd():
+    def select_fd():
 
         input_handler = InputComponent.new_fd
         fd = InputComponent.delegate_session(FD, input_handler)
@@ -1015,7 +1016,7 @@ class InputComponent:
         return rs
 
     @staticmethod
-    def general_relation():
+    def select_relation():
         # TODO
         return InputComponent.new_relation()
 
@@ -1027,7 +1028,7 @@ class InputComponent:
         return FDSet(fd_lst)
 
     @staticmethod
-    def general_fds():
+    def select_fds():
         input_handler = InputComponent.new_fds
         rs = InputComponent.delegate_session(FD, input_handler)
         return rs
@@ -1050,7 +1051,7 @@ class InputComponent:
 
 
     @staticmethod
-    def general_attrs():
+    def select_attrs():
         input_handler = InputComponent.new_attrs
         rs = InputComponent.delegate_session(FD, input_handler)
         return rs
@@ -1058,6 +1059,10 @@ class InputComponent:
 
     @staticmethod
     def delegate_session(clazz, add_hander_func):
+        """
+        Storage session data user input for them to select later
+        Considering to use when change mode to select instead of create new one from input: attrs, FD, FDSet, Relation
+        """
         session_options = SessionStorage.get_lst(clazz)
         opts = [str(opt) for opt in session_options]
         opts.insert(0, "Add new on from input")
@@ -1077,6 +1082,9 @@ class InputComponent:
                 UI.echo("Bad input, please try again.\nFD example: A, C -> D, E\n")
 
 def ArgInputInjectProvider(f):
+    """
+    A general way to provide require arg for each function, static method mark this decorator when it being call
+    """
     def match_type_or_contain(A: type, B: type | Union[Any, Any]):
         try:
             return A == B or A in B.__args__
@@ -1095,7 +1103,7 @@ def ArgInputInjectProvider(f):
             set: InputComponent.new_attrs,
             FD: InputComponent.new_fd,
             FDSet: InputComponent.new_fds,
-            Relation: InputComponent.general_relation,
+            Relation: InputComponent.select_relation,
         }
 
         step = 1
@@ -1148,15 +1156,26 @@ class RelationModel:
 
     @ArgInputInjectProvider
     @staticmethod
-    def attribute_closure(attrs: set | None = None, fds: FDSet | None = None) -> set:
+    def attribute_closure(attrs: set, fds: FDSet) -> set:
         """
         Attribute closure
         """
         return AttributeSets.closure(attrs, fds)
 
+
+
     @ArgInputInjectProvider
     @staticmethod
-    def apply_ir2(fds: FDSet | None = None) -> None:
+    def minimal_cover(fds: FDSet) -> FDSet:
+        """
+        Minimal cover of a set of functional dependency
+        """
+        return FDSets.minimal_cover(fds)
+
+
+    @ArgInputInjectProvider
+    @staticmethod
+    def apply_ir2(fds: FDSet) -> FDSet:
         """
         Apply Armstrong IR2
         """
@@ -1165,7 +1184,7 @@ class RelationModel:
 
     @ArgInputInjectProvider
     @staticmethod
-    def apply_ir4(fds: FDSet | None = None) -> None:
+    def apply_ir4(fds: FDSet) -> FDSet:
         """
         Apply Armstrong IR4
         """
@@ -1174,7 +1193,7 @@ class RelationModel:
 
     @ArgInputInjectProvider
     @staticmethod
-    def apply_ir3_ir5(fds: FDSet | None = None) -> None:
+    def apply_ir3_ir5(fds: FDSet) -> FDSet:
         """
         Apply Armstrong IR3 and IR5
         """
@@ -1183,7 +1202,7 @@ class RelationModel:
 
     @ArgInputInjectProvider
     @staticmethod
-    def is_fds_equivalen(a: FDSet | None = None, b: FDSet | None = None):
+    def is_fds_equivalen(a: FDSet, b: FDSet):
         """
         Compare two set of function dependency is equivalent
         """
@@ -1194,7 +1213,7 @@ class RelationModel:
 
     @ArgInputInjectProvider
     @staticmethod
-    def fds_closure(fds: FDSet | None = None) -> FDSet:
+    def fds_closure(fds: FDSet) -> FDSet:
         """
         Closure of set functional dependency
         """
@@ -1202,7 +1221,7 @@ class RelationModel:
 
     @ArgInputInjectProvider
     @staticmethod
-    def find_key(attrs: set | None = None, fds: FDSet | None = None) -> set:
+    def find_key(attrs: set, fds: FDSet) -> set:
         """
         Find key from set of attribute and set of functional dependency
         """
@@ -1210,7 +1229,7 @@ class RelationModel:
 
     @ArgInputInjectProvider
     @staticmethod
-    def find_key_from_relation(relation: Relation | None = None) -> set | None:
+    def find_key_from_relation(relation: Relation) -> set | str:
         """
         Find key from relation
         """
@@ -1220,9 +1239,9 @@ class RelationModel:
     @ArgInputInjectProvider
     @staticmethod
     def is_superkey(
-        attrs_check: set | None = None,
-        all_attrs: set | None = None,
-        fds: FDSet | None = None,
+        attrs_check: set,
+        all_attrs: set,
+        fds: FDSet,
     ) -> bool:
         """
         Check set of attribute is super key base on all available attribute and set of functional dependency
@@ -1231,7 +1250,7 @@ class RelationModel:
 
     @ArgInputInjectProvider
     @staticmethod
-    def decompose_to_3nf(relation: Relation | None = None) -> Iterable[Relation]:
+    def decompose_to_3nf(relation: Relation) -> Iterable[Relation]:
         """
         Decompose relation to 3NF form
         """
@@ -1239,7 +1258,7 @@ class RelationModel:
 
     @ArgInputInjectProvider
     @staticmethod
-    def decompose_to_bcnf(relation: Relation | None = None) -> Iterable[Relation]:
+    def decompose_to_bcnf(relation: Relation) -> Iterable[Relation]:
         """
         Decompose relation to BCNF form
         """
