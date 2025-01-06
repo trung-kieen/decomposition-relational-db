@@ -895,7 +895,6 @@ class UI:
     def show_banner():
         UI.echo("_" * 100)
 
-
     @staticmethod
     def interact_input(inline_prompt) -> str:
         return input(inline_prompt + "\n>")
@@ -925,11 +924,6 @@ class UI:
     ):
         print(args)
 
-
-
-
-
-
     @staticmethod
     def clear():
 
@@ -951,7 +945,6 @@ class UI:
 
 class InputComponent:
 
-
     @staticmethod
     def new_relation():
         workWithSession = False
@@ -969,7 +962,10 @@ class InputComponent:
         primary_key = InputComponent.new_attrs(require=False)
         UI.echo("4. Candidate key (enter to skip)")
         candidate_keys = InputComponent.new_collection(
-            InputComponent.new_attrs, "Enter number of candidate key: ", 0, require=False
+            InputComponent.new_attrs,
+            "Enter number of candidate key: ",
+            0,
+            require=False,
         )
         r = Relation(
             attrs=attrs,
@@ -988,13 +984,8 @@ class InputComponent:
         fd = InputComponent.delegate_session(FD, input_handler)
         return fd
 
-
-
-
     @staticmethod
-    def new_collection(
-        func_input_new_item, prompt="", limit_min_value=1, require=True
-    ):
+    def new_collection(func_input_new_item, prompt="", limit_min_value=1, require=True):
         num: int
         while True:
             request = prompt if prompt else "Enter number of input "
@@ -1049,13 +1040,11 @@ class InputComponent:
             except:
                 UI.echo(error_msg)
 
-
     @staticmethod
     def select_attrs():
         input_handler = InputComponent.new_attrs
         rs = InputComponent.delegate_session(FD, input_handler)
         return rs
-
 
     @staticmethod
     def delegate_session(clazz, add_hander_func):
@@ -1081,10 +1070,12 @@ class InputComponent:
             except:
                 UI.echo("Bad input, please try again.\nFD example: A, C -> D, E\n")
 
+
 def ArgInputInjectProvider(f):
     """
     A general way to provide require arg for each function, static method mark this decorator when it being call
     """
+
     def match_type_or_contain(A: type, B: type | Union[Any, Any]):
         try:
             return A == B or A in B.__args__
@@ -1162,8 +1153,6 @@ class RelationModel:
         """
         return AttributeSets.closure(attrs, fds)
 
-
-
     @ArgInputInjectProvider
     @staticmethod
     def minimal_cover(fds: FDSet) -> FDSet:
@@ -1171,7 +1160,6 @@ class RelationModel:
         Minimal cover of a set of functional dependency
         """
         return FDSets.minimal_cover(fds)
-
 
     @ArgInputInjectProvider
     @staticmethod
