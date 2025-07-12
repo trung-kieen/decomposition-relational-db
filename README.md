@@ -1,9 +1,11 @@
 # Overview 
-Just a tool to simplify relation normalization process.
+Just a tool to simplify relation normalization process, evaluate database design. 
 
 ![menu](./assets/interactive_menu_02.png)
 ![decompose 3nf](./assets/3nf_02.png)
 ![decompose bcnf](./assets/bcnf_02.png)
+
+And more!
 
 
 # Usage 
@@ -28,11 +30,9 @@ python3 main.py
 - [ ] Args parser integrate click
 - [ ] Reduce random order of set iterator in minimal_cover method
 
-
-# Issues
-If you encounter any issues while using feel free to open a new issue. When reporting an issue, please include any relevant logs or screenshots.
-
 # Disclaimers
 All code is kept in one file for portability and ease of execution.
 
-Manually providing user inputs became tedious, so I implemented dynamic input injection.
+User input binding with dynamic injection, same idea how Spring implement IoC 🤞. I love Spring btw. 
+
+Follow TDD but in a suck way 💀. 
